@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profile Completion Card Mockup</title>
+  <style>
+    :root {
+      --navy: #06245B;
+      --yellow: #FFE500;
+      --green: #0F8B63;
+      --amber: #B7791F;
+      --red: #B42318;
+      --ink: #1f2937;
+      --muted: #667085;
+      --line: #E6ECF5;
+      --soft: #F7FAFF;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #f5f7fb;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      padding: 32px;
+    }
+
+    .card {
+      width: 360px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fff;
+      box-shadow: 0 12px 28px rgba(6, 36, 91, .05);
+      padding: 18px;
+    }
+
+    .top {
+      display: block;
+      padding-bottom: 13px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .heading-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .percent {
+      color: var(--navy);
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: #e8eef7;
+      overflow: hidden;
+      margin-top: 12px;
+      box-shadow: inset 0 0 0 1px rgba(6, 36, 91, .04);
+    }
+
+    .fill {
+      width: 70%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--navy);
+    }
+
+    .eyebrow {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .title {
+      color: var(--navy);
+      font-size: 17px;
+      line-height: 1.1;
+      font-weight: 950;
+      margin-bottom: 5px;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      font-weight: 650;
+      max-width: 260px;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      margin-top: 14px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 30px 1fr auto;
+      gap: 9px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid #edf1f7;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: var(--navy);
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .done .icon { background: #E5F7EF; color: var(--green); }
+    .partial .icon { background: #F7F8FA; color: var(--navy); }
+    .todo .icon { background: #F2F4F7; color: #98A2B3; }
+
+    .label {
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.15;
+    }
+
+    .detail {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-top: 3px;
+    }
+
+    .status {
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .done .status { background: #E5F7EF; color: var(--green); }
+    .partial .status { background: #F7F8FA; color: var(--navy); }
+    .todo .status { background: #F2F4F7; color: #667085; }
+
+  </style>
+</head>
+<body>
+  <section class="card" aria-label="Profile completion mockup">
+    <div class="top">
+      <div class="heading-row">
+        <div>
+          <div class="title">Core profile progress</div>
+        </div>
+        <div class="percent">70%</div>
+      </div>
+      <div class="bar"><div class="fill"></div></div>
+    </div>
+
+    <div class="list">
+      <div class="row done">
+        <div class="icon">✓</div>
+        <div>
+          <div class="label">Academic profile</div>
+          <div class="detail">GPA and test score added</div>
+        </div>
+        <div class="status">Done</div>
+      </div>
+
+      <div class="row partial">
+        <div class="icon">2</div>
+        <div>
+          <div class="label">Activities</div>
+          <div class="detail">2 of 6 added</div>
+        </div>
+        <div class="status">In progress</div>
+      </div>
+
+      <div class="row partial">
+        <div class="icon">S</div>
+        <div>
+          <div class="label">Standardized tests</div>
+          <div class="detail">SAT added. ACT optional.</div>
+        </div>
+        <div class="status">Good</div>
+      </div>
+
+      <div class="row todo">
+        <div class="icon">?</div>
+        <div>
+          <div class="label">Intended major</div>
+          <div class="detail">Undecided. Choose when ready.</div>
+        </div>
+        <div class="status">Open</div>
+      </div>
+
+      <div class="row partial">
+        <div class="icon">1</div>
+        <div>
+          <div class="label">Personal stories</div>
+          <div class="detail">1 of 3+ added</div>
+        </div>
+        <div class="status">In progress</div>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

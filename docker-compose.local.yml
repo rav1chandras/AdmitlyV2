@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: college_planner_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admitly
+      POSTGRES_PASSWORD: admitly
+      POSTGRES_DB: college_planner
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./data/colleges_master.csv:/docker-entrypoint-initdb.d/colleges_master.csv
+      - ./data/programs_master.csv:/docker-entrypoint-initdb.d/programs_master.csv
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admitly -d college_planner"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  app:
+    image: admitly-app:latest
+    container_name: college_planner_app
+    restart: unless-stopped
+    working_dir: /app
+    user: root
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_URL: postgresql://admitly:admitly@postgres:5432/college_planner
+      DATABASE_URL: postgresql://admitly:admitly@postgres:5432/college_planner
+      NEXTAUTH_URL: http://localhost:3000
+      NODE_ENV: development
+      ENABLE_DEMO_ACCOUNTS: "true"
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+      - app_next:/app/.next
+    command: sh -lc "find node_modules .next -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true; npm install --legacy-peer-deps && npm run dev -- --hostname 0.0.0.0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    name: admitly_postgres_data
+  app_node_modules:
+  app_next:

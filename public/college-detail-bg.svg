@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 1536" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="0.45" stop-color="#eaf2ff"/>
+      <stop offset="1" stop-color="#dfeaff"/>
+    </linearGradient>
+    <radialGradient id="glowTop" cx="22%" cy="2%" r="36%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.7" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowMid" cx="54%" cy="42%" r="54%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="meshDots" width="14" height="14" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="0.75" fill="#ffffff" opacity="0.82"/>
+    </pattern>
+    <filter id="softBlur">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+  </defs>
+  <rect width="768" height="1536" fill="url(#base)"/>
+  <rect width="768" height="1536" fill="url(#glowTop)"/>
+  <rect width="768" height="1536" fill="url(#glowMid)"/>
+  <g opacity="0.55" filter="url(#softBlur)">
+    <ellipse cx="148" cy="-36" rx="130" ry="186" fill="#ffffff"/>
+    <ellipse cx="334" cy="72" rx="102" ry="132" fill="#ffffff" opacity="0.7"/>
+    <ellipse cx="648" cy="1456" rx="156" ry="178" fill="#ffffff" opacity="0.78"/>
+    <ellipse cx="108" cy="1334" rx="148" ry="196" fill="#ffffff" opacity="0.55"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="2" opacity="0.55">
+    <path d="M-72 414 C 60 226, 186 202, 314 156 S 526 46, 842 -42"/>
+    <path d="M-88 468 C 72 284, 220 236, 380 156 S 612 34, 850 -8"/>
+    <path d="M-64 1346 C 148 1416, 262 1506, 432 1312 S 624 1014, 850 964"/>
+    <path d="M-44 1420 C 180 1488, 306 1586, 486 1368 S 654 1052, 842 1018"/>
+  </g>
+  <g opacity="0.36">
+    <path d="M-74 206 C 92 360, 208 332, 322 214 S 550 24, 836 0" fill="none" stroke="url(#meshDots)" stroke-width="90"/>
+    <path d="M310 1530 C 498 1316, 534 1086, 824 966" fill="none" stroke="url(#meshDots)" stroke-width="98"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="1" opacity="0.32">
+    <path d="M-92 222 C 74 354, 196 342, 322 220 S 546 28, 824 6"/>
+    <path d="M-78 248 C 86 382, 210 360, 344 232 S 572 44, 846 22"/>
+    <path d="M302 1548 C 482 1332, 532 1090, 830 948"/>
+    <path d="M348 1556 C 520 1364, 566 1136, 842 1008"/>
+  </g>
+</svg>

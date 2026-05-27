@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────
+#  College Planner — Docker Compose
+#  Starts PostgreSQL + Next.js app together
+#  Run: docker compose up --build
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL database ──────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: college_planner_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     admitly
+      POSTGRES_PASSWORD: admitly
+      POSTGRES_DB:       college_planner
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./data/colleges_master.csv:/docker-entrypoint-initdb.d/colleges_master.csv
+      - ./data/programs_master.csv:/docker-entrypoint-initdb.d/programs_master.csv
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admitly -d college_planner"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  # ── Next.js application ──────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS=true
+    container_name: college_planner_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    # SECURITY: Secrets are loaded from .env (gitignored). Do NOT commit
+    # secrets to this file. Copy .env.example to .env and fill in the
+    # real values for your deployment.
+    env_file:
+      - .env
+    environment:
+      POSTGRES_URL:    "postgresql://admitly:admitly@postgres:5432/college_planner"
+      NEXTAUTH_URL:    "http://localhost:3000"
+      NODE_ENV:        production
+      # ── Demo Accounts (dev/staging only) ──────────────────
+      ENABLE_DEMO_ACCOUNTS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

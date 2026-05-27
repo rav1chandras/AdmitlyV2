@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profile Strength Background Variants</title>
+  <style>
+    :root {
+      --navy: #06245B;
+      --green: #0F8B63;
+      --muted: #64748b;
+      --line: #dbe7f8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f5f7fb;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--navy);
+      padding: 30px;
+    }
+
+    .stack {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: grid;
+      gap: 22px;
+    }
+
+    .card {
+      min-height: 285px;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      padding: 34px 38px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 14px 34px rgba(6, 36, 91, .06);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: .62;
+      background:
+        linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.48) 1px, transparent 1px);
+      background-size: 38px 38px;
+      mask-image: linear-gradient(120deg, transparent 0%, #000 32%, #000 74%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      right: -110px;
+      bottom: -165px;
+      width: 370px;
+      height: 370px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.5);
+      pointer-events: none;
+    }
+
+    .building {
+      --border: #f1c7c7;
+      background:
+        radial-gradient(circle at 92% 14%, rgba(255,255,255,.82), transparent 24%),
+        radial-gradient(circle at 16% 0%, rgba(255,229,0,.2), transparent 24%),
+        linear-gradient(135deg, #fff8f8 0%, #fdeaea 55%, #fff 100%);
+    }
+
+    .strong {
+      --border: #bfd4fa;
+      background:
+        radial-gradient(circle at 92% 14%, rgba(255,255,255,.82), transparent 24%),
+        radial-gradient(circle at 16% 0%, rgba(255,229,0,.16), transparent 24%),
+        linear-gradient(135deg, #f7fbff 0%, #e9f2ff 55%, #fff 100%);
+    }
+
+    .top {
+      --border: #bfe8d8;
+      background:
+        radial-gradient(circle at 92% 14%, rgba(255,255,255,.82), transparent 24%),
+        radial-gradient(circle at 16% 0%, rgba(255,229,0,.16), transparent 24%),
+        linear-gradient(135deg, #f7fffb 0%, #e7f8f1 55%, #fff 100%);
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 170px;
+      gap: 32px;
+      align-items: end;
+      min-height: 215px;
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 42px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 42px;
+      padding: 0 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(6,36,91,.1);
+      background: rgba(255,255,255,.72);
+      color: var(--navy);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .edit {
+      height: 52px;
+      border: 0;
+      border-radius: 16px;
+      background: var(--navy);
+      color: #fff;
+      padding: 0 22px;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 950;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 46px;
+      line-height: 1.05;
+      letter-spacing: -0.025em;
+      color: var(--navy);
+    }
+
+    p {
+      margin: 12px 0 0;
+      color: #667fa3;
+      font-size: 18px;
+      font-weight: 650;
+    }
+
+    .track {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(6,36,91,.08);
+      overflow: hidden;
+      margin-top: 26px;
+      max-width: 640px;
+    }
+
+    .fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #cc266d, var(--navy) 52%, #0bb08a);
+    }
+
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .pill {
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 15px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.74);
+      border: 1px solid rgba(6,36,91,.1);
+      color: var(--navy);
+      font-weight: 900;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #0bb08a;
+    }
+
+    .dot.blue { background: var(--navy); }
+    .dot.pink { background: #cc266d; }
+
+    .score {
+      position: relative;
+      z-index: 1;
+      text-align: right;
+      padding-bottom: 6px;
+    }
+
+    .num {
+      font-size: 82px;
+      line-height: .86;
+      font-weight: 950;
+      letter-spacing: -.06em;
+    }
+
+    .num span {
+      color: rgba(6,36,91,.28);
+      font-size: 26px;
+      letter-spacing: 0;
+    }
+
+    .rank {
+      display: inline-flex;
+      align-items: center;
+      height: 38px;
+      margin-top: 18px;
+      padding: 0 16px;
+      border-radius: 999px;
+      background: rgba(15,139,99,.12);
+      color: var(--green);
+      font-weight: 950;
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+  <main class="stack">
+    <section class="card building">
+      <div class="topline">
+        <div class="badge">⚡ Profile Strength</div>
+        <button class="edit">✎ Edit Profile</button>
+      </div>
+      <div class="content">
+        <div>
+          <h2>Admissions profile score</h2>
+          <p>A quick read on academics, rigor, activities, and story evidence.</p>
+          <div class="track"><div class="fill" style="width: 45%"></div></div>
+          <div class="pills">
+            <div class="pill"><span class="dot"></span> GPA 3.30</div>
+            <div class="pill"><span class="dot blue"></span> SAT pending</div>
+            <div class="pill"><span class="dot pink"></span> 2 APs</div>
+          </div>
+        </div>
+        <div class="score">
+          <div class="num">45<span>/99</span></div>
+          <div class="rank">Building</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card strong">
+      <div class="topline">
+        <div class="badge">⚡ Profile Strength</div>
+        <button class="edit">✎ Edit Profile</button>
+      </div>
+      <div class="content">
+        <div>
+          <h2>Admissions profile score</h2>
+          <p>A quick read on academics, rigor, activities, and story evidence.</p>
+          <div class="track"><div class="fill" style="width: 76%"></div></div>
+          <div class="pills">
+            <div class="pill"><span class="dot"></span> GPA 3.72</div>
+            <div class="pill"><span class="dot blue"></span> SAT 1420</div>
+            <div class="pill"><span class="dot pink"></span> 7 APs</div>
+          </div>
+        </div>
+        <div class="score">
+          <div class="num">76<span>/99</span></div>
+          <div class="rank">Top 15%</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card top">
+      <div class="topline">
+        <div class="badge">⚡ Profile Strength</div>
+        <button class="edit">✎ Edit Profile</button>
+      </div>
+      <div class="content">
+        <div>
+          <h2>Admissions profile score</h2>
+          <p>A quick read on academics, rigor, activities, and story evidence.</p>
+          <div class="track"><div class="fill" style="width: 96%"></div></div>
+          <div class="pills">
+            <div class="pill"><span class="dot"></span> GPA 3.85</div>
+            <div class="pill"><span class="dot blue"></span> SAT 1550</div>
+            <div class="pill"><span class="dot pink"></span> 13 APs</div>
+          </div>
+        </div>
+        <div class="score">
+          <div class="num">96<span>/99</span></div>
+          <div class="rank">Top 5%</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

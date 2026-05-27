@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profile Insights Mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #06245B;
+      --yellow: #FFE500;
+      --bg: #f7f7f5;
+      --card: #fff;
+      --border: #e7e5e4;
+      --muted: #8c8c8c;
+      --soft-blue: #eef5ff;
+      --green: #0F6E56;
+      --red: #A32D2D;
+      --amber: #854F0B;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      font-family: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--navy);
+    }
+
+    .panel {
+      width: min(980px, calc(100vw - 48px));
+      background:
+        radial-gradient(circle at 94% 8%, rgba(255, 229, 0, .16), transparent 22%),
+        radial-gradient(circle at 4% 100%, rgba(6, 36, 91, .08), transparent 26%),
+        var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 22px;
+      box-shadow: 0 16px 42px rgba(15, 23, 42, 0.07);
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .45px;
+      color: #7c8493;
+      margin-bottom: 6px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.1;
+      font-weight: 950;
+      color: var(--navy);
+      letter-spacing: -0.25px;
+    }
+
+    .sub {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: #6f7787;
+      font-weight: 700;
+      line-height: 1.5;
+      max-width: 560px;
+    }
+
+    .refresh {
+      border: none;
+      border-radius: 12px;
+      background: var(--navy);
+      color: #fff;
+      height: 40px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .score-card {
+      border: 1px solid #dbe7ff;
+      border-radius: 18px;
+      padding: 20px;
+      background:
+        radial-gradient(circle at 88% 12%, rgba(255,229,0,.26), transparent 18%),
+        linear-gradient(135deg, #eef5ff, #fff);
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .score {
+      width: 142px;
+      height: 142px;
+      border-radius: 50%;
+      background: conic-gradient(var(--navy) 78%, #dde6f5 0);
+      display: grid;
+      place-items: center;
+      margin: 0 auto;
+    }
+
+    .score-inner {
+      width: 112px;
+      height: 112px;
+      border-radius: 50%;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      box-shadow: inset 0 0 0 1px #e6edf7;
+    }
+
+    .score-num {
+      font-size: 34px;
+      font-weight: 950;
+      line-height: 1;
+      color: var(--navy);
+    }
+
+    .score-label {
+      font-size: 10px;
+      color: #8c95a5;
+      font-weight: 900;
+      margin-top: 3px;
+      text-transform: uppercase;
+      letter-spacing: .35px;
+    }
+
+    .verdict {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 999px;
+      padding: 6px 11px;
+      background: #e1f5ee;
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .score-copy h2 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 950;
+      color: var(--navy);
+      line-height: 1.15;
+    }
+
+    .score-copy p {
+      margin: 7px 0 0;
+      color: #667085;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.55;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 14px;
+    }
+
+    .pill {
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid #dce5f3;
+      color: var(--navy);
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .donut-card,
+    .list-card {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: #fff;
+      padding: 18px;
+    }
+
+    .donut-card {
+      background: linear-gradient(180deg, #ffffff, #fbfdff);
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 950;
+      color: var(--navy);
+      margin-bottom: 13px;
+    }
+
+    .section-title span {
+      width: 28px;
+      height: 28px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      background: var(--yellow);
+      color: var(--navy);
+      font-size: 13px;
+    }
+
+    .donut-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .donut-metric {
+      border: 1px solid #e7edf6;
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at 100% 0, rgba(255,229,0,.14), transparent 34%),
+        #fff;
+      padding: 14px 12px;
+      text-align: center;
+      min-width: 0;
+    }
+
+    .donut {
+      --value: 80;
+      --accent: var(--navy);
+      width: 92px;
+      height: 92px;
+      margin: 0 auto 11px;
+      border-radius: 50%;
+      background: conic-gradient(var(--accent) calc(var(--value) * 1%), #e8eef7 0);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, .08);
+    }
+
+    .donut-inner {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      color: var(--navy);
+      font-size: 22px;
+      font-weight: 950;
+      box-shadow: inset 0 0 0 1px #edf1f6;
+    }
+
+    .donut-label {
+      color: var(--navy);
+      font-size: 12px;
+      line-height: 1.15;
+      font-weight: 950;
+      margin-bottom: 4px;
+    }
+
+    .donut-note {
+      color: #7c8493;
+      font-size: 10px;
+      line-height: 1.3;
+      font-weight: 800;
+    }
+
+    .summary-strip {
+      margin-top: 14px;
+      border-radius: 14px;
+      background: #f7fbff;
+      border: 1px solid #e2ecfa;
+      padding: 12px 13px;
+      color: #667085;
+      font-size: 11px;
+      line-height: 1.45;
+      font-weight: 750;
+    }
+
+    .bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .item {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 10px;
+      padding: 12px 0;
+      border-top: 1px solid #f0efed;
+    }
+
+    .item:first-of-type {
+      border-top: none;
+      padding-top: 0;
+    }
+
+    .icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+
+    .icon.good { background: #e1f5ee; color: var(--green); }
+    .icon.warn { background: #faeeda; color: var(--amber); }
+    .icon.next { background: var(--soft-blue); color: var(--navy); }
+
+    .item-title {
+      font-size: 12px;
+      font-weight: 950;
+      color: var(--navy);
+      margin-bottom: 3px;
+    }
+
+    .item-copy {
+      font-size: 11px;
+      line-height: 1.45;
+      font-weight: 700;
+      color: #667085;
+    }
+
+    @media (max-width: 820px) {
+      .grid,
+      .bottom,
+      .donut-grid,
+      .score-card {
+        grid-template-columns: 1fr;
+      }
+
+      .top {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <div class="top">
+      <div>
+        <div class="eyebrow">Dashboard</div>
+        <h1>Profile Insights</h1>
+        <p class="sub">A combined view of strengths, gaps, and recommended next steps based on your profile, activities, and stories.</p>
+      </div>
+      <button class="refresh" type="button">↻ Refresh insights</button>
+    </div>
+
+    <section class="grid">
+      <article class="score-card">
+        <div class="score">
+          <div class="score-inner">
+            <div>
+              <div class="score-num">78</div>
+              <div class="score-label">Profile</div>
+            </div>
+          </div>
+        </div>
+        <div class="score-copy">
+          <div class="verdict">Strong foundation</div>
+          <h2>Strong academics, needs sharper story signals.</h2>
+          <p>Your GPA and test profile are competitive. The biggest lift will come from adding more specific leadership outcomes and personal story evidence.</p>
+          <div class="pill-row">
+            <span class="pill">GPA 4.0</span>
+            <span class="pill">SAT 1550</span>
+            <span class="pill">6 APs</span>
+            <span class="pill">CS interest</span>
+          </div>
+        </div>
+      </article>
+
+      <aside class="donut-card">
+        <div class="section-title"><span>↗</span> Strength snapshot</div>
+        <div class="donut-grid">
+          <div class="donut-metric">
+            <div class="donut" style="--value:92; --accent:#0F6E56;">
+              <div class="donut-inner">92</div>
+            </div>
+            <div class="donut-label">Academics</div>
+            <div class="donut-note">GPA + scores</div>
+          </div>
+          <div class="donut-metric">
+            <div class="donut" style="--value:76; --accent:#06245B;">
+              <div class="donut-inner">76</div>
+            </div>
+            <div class="donut-label">Course Rigor</div>
+            <div class="donut-note">AP + honors</div>
+          </div>
+          <div class="donut-metric">
+            <div class="donut" style="--value:68; --accent:#f59e0b;">
+              <div class="donut-inner">68</div>
+            </div>
+            <div class="donut-label">Extracurriculars</div>
+            <div class="donut-note">Impact signals</div>
+          </div>
+        </div>
+        <div class="summary-strip">
+          Academics are the anchor. Course rigor is solid, while extracurricular impact needs more measurable outcomes.
+        </div>
+      </aside>
+    </section>
+
+    <section class="bottom">
+      <article class="list-card">
+        <div class="section-title"><span>✓</span> Strongest signals</div>
+        <div class="item">
+          <div class="icon good">1</div>
+          <div>
+            <div class="item-title">Academic readiness is clear</div>
+            <div class="item-copy">Your GPA, SAT, and AP rigor are already strong enough to support ambitious college targeting.</div>
+          </div>
+        </div>
+        <div class="item">
+          <div class="icon good">2</div>
+          <div>
+            <div class="item-title">STEM direction is consistent</div>
+            <div class="item-copy">Your academic choices and intended major line up well for CS and engineering programs.</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="list-card">
+        <div class="section-title"><span>!</span> Gaps & next steps</div>
+        <div class="item">
+          <div class="icon warn">1</div>
+          <div>
+            <div class="item-title">Add measurable leadership outcomes</div>
+            <div class="item-copy">Show what changed because of your work: members recruited, hours served, tools built, or people helped.</div>
+          </div>
+        </div>
+        <div class="item">
+          <div class="icon next">2</div>
+          <div>
+            <div class="item-title">Turn one story into an essay seed</div>
+            <div class="item-copy">Pick a specific moment that shows curiosity, resilience, or initiative and draft a 300-word scene.</div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

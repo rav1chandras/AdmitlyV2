@@ -1,0 +1,40 @@
+{
+  "name": "admitly",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "colleges:extract": "python scripts/extract_colleges.py",
+    "colleges:refresh": "python scripts/extract_colleges.py"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "pg": "^8.13.1",
+    "bcryptjs": "^2.4.3",
+    "next-auth": "^4.24.0",
+    "openai": "^4.77.0",
+    "stripe": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/pg": "^8.11.10",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5",
+    "vitest": "^2.1.0"
+  }
+}
