@@ -1057,14 +1057,20 @@
 
     .output-rail {
       display: grid;
-      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
     }
 
     .readiness {
       border-radius: 18px;
       background: var(--navy);
       color: #fff;
-      padding: 14px;
+      padding: 15px;
+      min-height: 128px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
     .readiness b {
@@ -1085,7 +1091,16 @@
       border: 1px solid #e6edf7;
       border-radius: 14px;
       background: #fff;
-      padding: 11px;
+      padding: 13px;
+      min-height: 128px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .output-chip.wide {
+      grid-column: 1 / -1;
+      min-height: auto;
     }
 
     .output-chip h3 {
@@ -2380,10 +2395,10 @@
                 <div class="right-output-preview">
                   <div class="readiness"><span>Teacher readiness</span><b>B+</b></div>
                   <div class="output-rail">
-                    <div class="output-chip"><h3>First impression</h3><p>This has a strong reflective moment. The reader can see a real change from wanting to lead with ideas to learning how to listen.</p></div>
+                    <div class="output-chip wide"><h3>First impression</h3><p>This has a strong reflective moment. The reader can see a real change from wanting to lead with ideas to learning how to listen.</p></div>
                     <div class="output-chip"><h3>What feels strongest</h3><p>The loose connector detail is specific and believable. It gives the paragraph a concrete scene instead of a generic lesson.</p></div>
                     <div class="output-chip"><h3>What may cost points</h3><p>The ending is thoughtful, but it could explain how this lesson changed what you did later on the team.</p></div>
-                    <div class="output-chip"><h3>Top 3 fixes</h3><p>Show one later example of improved leadership. Add one sentence about team outcome. Tighten the first sentence so it starts closer to the conflict.</p></div>
+                    <div class="output-chip wide"><h3>Top 3 fixes</h3><p>Show one later example of improved leadership. Add one sentence about team outcome. Tighten the first sentence so it starts closer to the conflict.</p></div>
                   </div>
                 </div>
               </div>
