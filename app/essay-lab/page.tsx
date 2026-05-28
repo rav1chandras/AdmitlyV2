@@ -466,15 +466,11 @@ export default function EssayLabPage() {
             <h1>Essay Lab</h1>
             <p>Pick an essay tool first. Launch only when you&apos;re ready to tune options and paste your draft.</p>
           </div>
+          <div className="limitPill"><b>{isPro ? '∞' : freeLeft}</b>{isPro ? 'unlimited Pro checks' : 'free checks left today'}</div>
         </header>
 
         <section className="labShell">
           <section className="toolLevel">
-            <div className="levelTitle">
-              <h2>1. Choose a Tool</h2>
-              <div className="limitPill"><b>{isPro ? '∞' : freeLeft}</b>{isPro ? 'unlimited Pro checks' : 'free checks left today'}</div>
-            </div>
-
             <div className="toolsShell">
               <div className="tools">
                 <button type="button" className={`tool large ${selectedTool === 'reader' ? 'active' : ''}`} style={tileStyle('reader')} onClick={() => chooseTool('reader')}>
@@ -824,6 +820,7 @@ export default function EssayLabPage() {
             font-size: 12px;
             font-weight: 900;
             white-space: nowrap;
+            box-shadow: 0 10px 28px rgba(15,23,42,.05);
           }
 
           .limitPill b {
