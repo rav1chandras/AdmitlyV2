@@ -849,13 +849,33 @@
       background: #f8fafc;
       padding: 12px 13px;
       color: #526174;
-      font-size: 12px;
-      line-height: 1.45;
-      font-weight: 750;
+      display: grid;
+      gap: 3px;
     }
 
     .prompt-strip b {
       color: var(--navy);
+      font-size: 12px;
+    }
+
+    .prompt-strip textarea {
+      width: 100%;
+      min-height: 39px;
+      max-height: 62px;
+      resize: none;
+      overflow-y: auto;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #223046;
+      font: 400 15px/1.75 Inter, system-ui, sans-serif;
+    }
+
+    .prompt-strip small {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      text-align: right;
     }
 
     .essay-input {
@@ -1014,16 +1034,15 @@
       background: #fbfcfe;
       padding: 10px;
       color: var(--muted);
-      font-size: 10.5px;
-      line-height: 1.36;
-      font-weight: 750;
+      font: 400 15px/1.75 Inter, system-ui, sans-serif;
     }
 
     .mini-row b {
       display: block;
       color: var(--navy);
-      font-size: 11.5px;
-      margin-bottom: 3px;
+      font-size: 12px;
+      line-height: 1.2;
+      margin-bottom: 5px;
     }
 
     .h-editor {
@@ -1060,31 +1079,55 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
       align-items: stretch;
+      min-width: 0;
     }
 
     .readiness {
       border-radius: 18px;
       background: var(--navy);
       color: #fff;
-      padding: 15px;
-      min-height: 128px;
+      padding: 18px;
+      min-height: 112px;
       display: flex;
-      flex-direction: column;
+      align-items: center;
       justify-content: space-between;
+      gap: 16px;
+      grid-column: 1 / -1;
+    }
+
+    .right-accordion.output-open #output-panel .readiness {
+      margin: -16px -16px 2px;
+      border-radius: 22px 22px 0 0;
+      padding: 24px 26px;
+      min-height: 124px;
     }
 
     .readiness b {
       display: block;
       color: var(--yellow);
-      font-size: 34px;
+      font-size: 46px;
       line-height: 1;
-      margin-top: 8px;
+      margin-top: 0;
     }
 
     .readiness span {
       color: rgba(255,255,255,.76);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 800;
+    }
+
+    .readiness h3 {
+      margin: 0;
+      color: #fff;
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .readiness p {
+      margin: 5px 0 0;
+      color: rgba(255,255,255,.72);
+      font: 400 15px/1.75 Inter, system-ui, sans-serif;
     }
 
     .output-chip {
@@ -1092,15 +1135,16 @@
       border-radius: 14px;
       background: #fff;
       padding: 13px;
-      min-height: 128px;
+      min-height: 112px;
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
+      min-width: 0;
     }
 
     .output-chip.wide {
       grid-column: 1 / -1;
-      min-height: auto;
+      min-height: 96px;
     }
 
     .output-chip h3 {
@@ -1113,9 +1157,7 @@
     .output-chip p {
       margin: 0;
       color: var(--muted);
-      font-size: 10.5px;
-      line-height: 1.38;
-      font-weight: 750;
+      font: 400 15px/1.75 Inter, system-ui, sans-serif;
     }
 
     .guided-accordion {
@@ -1165,17 +1207,15 @@
     .static-title h2 {
       margin: 0;
       color: var(--navy);
-      font-size: 22px;
-      line-height: 1.12;
+      font-size: 20px;
+      line-height: 1.2;
       letter-spacing: 0;
     }
 
     .static-title p {
-      margin: 4px 0 0;
+      margin: 5px 0 0;
       color: var(--muted);
-      font-size: 11px;
-      line-height: 1.35;
-      font-weight: 800;
+      font: 400 15px/1.75 Inter, system-ui, sans-serif;
     }
 
     .static-icon {
@@ -1194,10 +1234,8 @@
 
     .static-copy {
       margin: 0;
-      color: #526174;
-      font-size: 12.5px;
-      line-height: 1.58;
-      font-weight: 750;
+      color: var(--muted);
+      font: 400 15px/1.75 Inter, system-ui, sans-serif;
     }
 
     .right-accordion {
@@ -1235,7 +1273,7 @@
     }
 
     .right-accordion.output-open .work-acc:last-child .work-acc-head {
-      border-bottom: 1px solid var(--line);
+      display: none;
     }
 
     .right-accordion.output-open .work-acc:last-child .work-acc-num {
@@ -1301,6 +1339,10 @@
     .work-acc.collapsed {
       min-height: 104px;
       flex: 0 0 auto;
+      display: flex;
+      gap: 0;
+      padding: 0;
+      background: #fff;
     }
 
     .work-acc-head {
@@ -1338,16 +1380,15 @@
     .work-acc-title h2 {
       margin: 0;
       color: var(--navy);
-      font-size: 16px;
+      font-size: 20px;
+      line-height: 1.2;
       letter-spacing: 0;
     }
 
     .work-acc-title p {
-      margin: 4px 0 0;
+      margin: 5px 0 0;
       color: var(--muted);
-      font-size: 11px;
-      line-height: 1.35;
-      font-weight: 800;
+      font: 400 15px/1.75 Inter, system-ui, sans-serif;
     }
 
     .work-acc-state {
@@ -1393,10 +1434,11 @@
     }
 
     .right-output-preview {
+      width: 100%;
       display: grid;
-      grid-template-columns: 170px minmax(0, 1fr);
-      gap: 12px;
-      align-items: start;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      align-items: stretch;
     }
 
     .acc-panel {
@@ -2065,7 +2107,7 @@
       outline: 0;
       padding: 17px;
       color: #223046;
-      font: 600 15px/1.75 Inter, system-ui, sans-serif;
+      font: 400 15px/1.75 Inter, system-ui, sans-serif;
       background: #fff;
     }
 
@@ -2155,14 +2197,13 @@
         <h1>Essay Lab</h1>
         <p class="sub">Pick an essay tool first. Launch only when you’re ready to tune options and paste your draft.</p>
       </div>
-      <div class="limit"><b>3</b> free checks left today</div>
     </header>
 
     <section class="lab">
       <section class="level">
         <div class="level-title">
           <h2>1. Choose a Tool</h2>
-          <div class="helper">Free school tools first. Pro tools for deeper review.</div>
+          <div class="limit"><b>3</b> free checks left today</div>
         </div>
 
         <div class="tools-shell">
@@ -2340,19 +2381,18 @@
               <div class="static-icon">TR</div>
               <div>
                 <h2>Reader Simulator</h2>
-                <p>Understand how your draft lands before submitting.</p>
+                <p>Preview how a real reader may react to your essay.</p>
               </div>
             </div>
-            <span class="h-kicker">FREE DAILY LIMIT</span>
-            <p class="static-copy">Teacher Review previews how a school essay may land with a classroom reader. It focuses on first impression, rubric risks, and the fixes that make the draft feel ready.</p>
             <div class="reader-switch" aria-label="Reader mode selector">
               <span class="active">Teacher</span>
               <span class="pro">Admissions <b>PRO</b></span>
             </div>
+            <p class="static-copy">Teacher Review previews how a school essay may land with a classroom reader. It focuses on first impression, rubric risks, and the fixes that make the draft feel ready.</p>
             <div class="mini-stack">
-              <div class="mini-row"><b>First impression</b> Clear, focused, and ready to read?</div>
-              <div class="mini-row"><b>Rubric risks</b> Evidence, organization, and analysis gaps.</div>
-              <div class="mini-row"><b>Top fixes</b> Short action list before submitting.</div>
+              <div class="mini-row"><b>Reader</b> High school teacher review for class essays.</div>
+              <div class="mini-row"><b>Strictness</b> Balanced feedback with practical comments.</div>
+              <div class="mini-row"><b>Output</b> First impression, concerns, and top fixes.</div>
             </div>
           </aside>
 
@@ -2364,15 +2404,14 @@
                   <h2>Essay Input</h2>
                   <p>Paste the prompt and essay, then run the reader.</p>
                 </div>
-                <div class="work-acc-state" id="word-count">96 / 800 words</div>
+                <div class="work-acc-state" id="word-count">0 / 1500 words</div>
               </div>
               <div class="work-acc-body">
-                <div class="compact-controls">
-                  <article class="compact-control active"><strong>Reader</strong><span>High school teacher review for class essays.</span></article>
-                  <article class="compact-control"><strong>Strictness</strong><span>Balanced feedback with practical comments.</span></article>
-                  <article class="compact-control"><strong>Output</strong><span>First impression, concerns, and top fixes.</span></article>
-                </div>
-                <div class="prompt-strip"><b>Optional prompt:</b> Explain how a challenge or experience shaped your perspective, using clear evidence and reflection.</div>
+                <label class="prompt-strip" for="prompt-input">
+                  <b>Optional prompt:</b>
+                  <textarea id="prompt-input">Explain how a challenge shaped your perspective with clear evidence and reflection.</textarea>
+                  <small id="prompt-count">0 / 100 words</small>
+                </label>
                 <textarea class="essay-input" id="essay-input" placeholder="Paste or write your essay here. Reader Simulator will preview how it may land with a high school teacher.">When I joined the robotics team, I thought my job was to be the person with the best ideas. At our first competition, our robot stopped moving during the second round, and I kept suggesting fixes before listening to anyone else. My teammate Maya finally asked me to stop talking and check the wiring with her. We found a loose connector in three minutes. That moment taught me that leadership is not always being the loudest person in the room. Sometimes it is slowing down enough to help the team think clearly.</textarea>
                 <div class="h-actions">
                   <p>Uses one free daily check. Results expand in the Output panel.</p>
@@ -2386,14 +2425,21 @@
               <div class="work-acc-head" id="output-head">
                 <div class="work-acc-num">2</div>
                 <div class="work-acc-title">
-                  <h2>Output</h2>
-                  <p id="output-subtitle">Teacher-style result preview after running.</p>
+                  <h2>Teacher readiness</h2>
+                  <p id="output-subtitle">View teacher-style feedback.</p>
                 </div>
                 <div class="work-acc-state" id="output-state">Ready</div>
               </div>
               <div class="work-acc-body">
                 <div class="right-output-preview">
-                  <div class="readiness"><span>Teacher readiness</span><b>B+</b></div>
+                  <div class="readiness">
+                    <div>
+                      <span>2. Teacher readiness</span>
+                      <h3>Strong draft with one evidence gap</h3>
+                      <p>The essay reads clearly and has a believable reflective moment.</p>
+                    </div>
+                    <b>B+</b>
+                  </div>
                   <div class="output-rail">
                     <div class="output-chip wide"><h3>First impression</h3><p>This has a strong reflective moment. The reader can see a real change from wanting to lead with ideas to learning how to listen.</p></div>
                     <div class="output-chip"><h3>What feels strongest</h3><p>The loose connector detail is specific and believable. It gives the paragraph a concrete scene instead of a generic lesson.</p></div>
@@ -2414,17 +2460,51 @@
     const outputSubtitle = document.getElementById('output-subtitle');
     const outputState = document.getElementById('output-state');
     const essayInput = document.getElementById('essay-input');
+    const promptInput = document.getElementById('prompt-input');
+    const promptCount = document.getElementById('prompt-count');
     const wordCount = document.getElementById('word-count');
     const inputHead = document.getElementById('input-head');
     const outputHead = document.getElementById('output-head');
 
-    function updateWordCount() {
-      const words = essayInput.value.trim() ? essayInput.value.trim().split(/\s+/).length : 0;
-      wordCount.textContent = `${words} / 800 words`;
+    function wordsFrom(text) {
+      return text.trim() ? text.trim().split(/\s+/) : [];
     }
 
-    essayInput.addEventListener('input', updateWordCount);
-    updateWordCount();
+    function enforceWordLimit(input, limit) {
+      const words = wordsFrom(input.value);
+      if (words.length > limit) {
+        input.value = words.slice(0, limit).join(' ');
+      }
+    }
+
+    function textWithinWordLimit(text, limit) {
+      return wordsFrom(text).slice(0, limit).join(' ');
+    }
+
+    function handleLimitedPaste(event, input, limit) {
+      const pasted = event.clipboardData?.getData('text/plain') || '';
+      if (!pasted) return;
+      event.preventDefault();
+
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      const nextValue = `${input.value.slice(0, start)}${pasted}${input.value.slice(end)}`;
+      input.value = textWithinWordLimit(nextValue, limit);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function updateCounts() {
+      enforceWordLimit(essayInput, 1500);
+      enforceWordLimit(promptInput, 100);
+      wordCount.textContent = `${wordsFrom(essayInput.value).length} / 1500 words`;
+      promptCount.textContent = `${wordsFrom(promptInput.value).length} / 100 words`;
+    }
+
+    essayInput.addEventListener('input', updateCounts);
+    promptInput.addEventListener('input', updateCounts);
+    essayInput.addEventListener('paste', event => handleLimitedPaste(event, essayInput, 1500));
+    promptInput.addEventListener('paste', event => handleLimitedPaste(event, promptInput, 100));
+    updateCounts();
 
     function openInput() {
       flow.classList.remove('output-open');
