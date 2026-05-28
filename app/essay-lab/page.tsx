@@ -7,6 +7,7 @@ import { AppShell } from '@/components/AppShell';
 
 type ReaderRole = 'teacher' | 'admissions_officer';
 type SelectivityTier = 'highly' | 'selective' | 'moderate';
+type ToolId = 'reader' | 'studio' | 'thesis' | 'outline' | 'paragraph' | 'evidence' | 'conclusion' | 'score' | 'prompt-fit';
 
 interface ReaderResult {
   reader_role: ReaderRole;
@@ -23,7 +24,7 @@ interface ReaderResult {
 }
 
 interface ToolTile {
-  id: string;
+  id: ToolId;
   title: string;
   desc: string;
   foot: string;
@@ -36,9 +37,18 @@ interface ToolTile {
   pro?: boolean;
 }
 
+interface ToolResult {
+  toolId: ToolId;
+  score?: number;
+  headline: string;
+  summary: string;
+  chips: Array<{ title: string; body: string }>;
+}
+
 const NAVY = '#06245B';
 const YELLOW = '#FFE500';
 const FREE_DAILY_LIMIT = 3;
+const RUNNABLE_TOOL_IDS: ToolId[] = ['reader', 'thesis', 'outline', 'paragraph', 'evidence', 'conclusion', 'score', 'prompt-fit'];
 
 export const dynamic = 'force-dynamic';
 
@@ -150,6 +160,158 @@ const TOOLS: ToolTile[] = [
     pro: true,
   },
 ];
+
+const TOOL_CONTENT: Record<ToolId, {
+  short: string;
+  staticIcon: string;
+  title: string;
+  intro: string;
+  miniRows: Array<[string, string]>;
+  inputTitle: string;
+  inputHint: string;
+  placeholder: string;
+  runLabel: string;
+  runningLabel: string;
+  outputTitle: string;
+  outputHint: string;
+  minWords: number;
+}> = {
+  reader: {
+    short: 'TR',
+    staticIcon: 'TR',
+    title: 'Reader Simulator',
+    intro: 'Teacher Review previews how a school essay may land with a classroom reader. It focuses on first impression, rubric risks, and the fixes that make the draft feel ready.',
+    miniRows: [['Reader', 'High school teacher review for class essays.'], ['Strictness', 'Balanced feedback with practical comments.'], ['Output', 'First impression, concerns, and top fixes.']],
+    inputTitle: 'Essay Input',
+    inputHint: 'Paste the prompt and essay, then run the reader.',
+    placeholder: 'Paste or write your essay here. Reader Simulator will preview how it may land with a high school teacher.',
+    runLabel: 'Run Reader Simulator',
+    runningLabel: 'Reading draft',
+    outputTitle: 'Teacher readiness',
+    outputHint: 'View teacher-style feedback.',
+    minWords: 50,
+  },
+  studio: {
+    short: 'ES',
+    staticIcon: 'ES',
+    title: 'Essay Studio',
+    intro: 'Full drafting workspace with voice, journey, and review controls.',
+    miniRows: [['Workspace', 'Draft, revise, review, and save essays.'], ['Voice', 'Use personal writing samples when enabled.'], ['Output', 'Structured essay drafting workflow.']],
+    inputTitle: 'Essay Studio',
+    inputHint: 'Open the full drafting workspace.',
+    placeholder: 'Essay Studio opens in the full essay workspace.',
+    runLabel: 'Open Essay Studio',
+    runningLabel: 'Opening',
+    outputTitle: 'Essay Studio',
+    outputHint: 'Full workspace.',
+    minWords: 0,
+  },
+  thesis: {
+    short: 'TC',
+    staticIcon: 'TC',
+    title: 'Thesis Checker',
+    intro: 'Thesis Checker finds whether the draft has a clear, specific, arguable central idea and suggests a stronger version.',
+    miniRows: [['Checks', 'Clarity, specificity, and arguable claim.'], ['Best for', 'Introductions and argument essays.'], ['Output', 'Score, gaps, rewrite, and next step.']],
+    inputTitle: 'Thesis Input',
+    inputHint: 'Paste the prompt and the paragraph with your thesis.',
+    placeholder: 'Paste your intro paragraph or the section that contains your thesis.',
+    runLabel: 'Check Thesis',
+    runningLabel: 'Checking thesis',
+    outputTitle: 'Thesis result',
+    outputHint: 'View thesis clarity and rewrite ideas.',
+    minWords: 20,
+  },
+  outline: {
+    short: 'OB',
+    staticIcon: 'OB',
+    title: 'Outline Builder',
+    intro: 'Outline Builder turns a prompt, thesis, or rough idea into a paragraph-by-paragraph essay plan.',
+    miniRows: [['Builds', 'Hook, body points, counterpoint, conclusion.'], ['Best for', 'Starting a draft from a prompt.'], ['Output', 'Clean outline with evidence notes.']],
+    inputTitle: 'Outline Input',
+    inputHint: 'Paste the prompt, thesis, or rough idea.',
+    placeholder: 'Paste your assignment prompt and any early thesis or ideas. Outline Builder will organize it into a draft plan.',
+    runLabel: 'Build Outline',
+    runningLabel: 'Building outline',
+    outputTitle: 'Generated outline',
+    outputHint: 'View the paragraph plan.',
+    minWords: 10,
+  },
+  paragraph: {
+    short: 'PF',
+    staticIcon: 'PF',
+    title: 'Paragraph Fixer',
+    intro: 'Paragraph Fixer polishes one paragraph for clarity, grammar, and flow while preserving the student’s meaning.',
+    miniRows: [['Fixes', 'Clarity, sentence flow, and repetition.'], ['Best for', 'One rough paragraph at a time.'], ['Output', 'Before/after rewrite plus edit notes.']],
+    inputTitle: 'Paragraph Input',
+    inputHint: 'Paste one paragraph you want cleaned up.',
+    placeholder: 'Paste one paragraph that feels rough, repetitive, or unclear.',
+    runLabel: 'Fix Paragraph',
+    runningLabel: 'Polishing paragraph',
+    outputTitle: 'Paragraph fix',
+    outputHint: 'View before/after polish.',
+    minWords: 20,
+  },
+  evidence: {
+    short: 'EC',
+    staticIcon: 'EC',
+    title: 'Evidence Checker',
+    intro: 'Evidence Checker spots unsupported claims and suggests concrete proof students can add.',
+    miniRows: [['Checks', 'Claim strength and proof gaps.'], ['Best for', 'Argument and analysis essays.'], ['Output', 'Claim map, strength bars, evidence ideas.']],
+    inputTitle: 'Evidence Input',
+    inputHint: 'Paste a body paragraph or argument section.',
+    placeholder: 'Paste a paragraph with claims and examples. Evidence Checker will flag where support is thin.',
+    runLabel: 'Check Evidence',
+    runningLabel: 'Checking evidence',
+    outputTitle: 'Evidence map',
+    outputHint: 'View claim support and gaps.',
+    minWords: 30,
+  },
+  conclusion: {
+    short: 'CC',
+    staticIcon: 'CC',
+    title: 'Conclusion Checker',
+    intro: 'Conclusion Checker tests whether the ending feels complete, reflective, and memorable.',
+    miniRows: [['Checks', 'Closure, reflection, and final impression.'], ['Best for', 'Last paragraphs and final lines.'], ['Output', 'Ending score, stronger version, next step.']],
+    inputTitle: 'Conclusion Input',
+    inputHint: 'Paste the final paragraph or last few lines.',
+    placeholder: 'Paste your conclusion. The checker will show whether the ending lands cleanly.',
+    runLabel: 'Check Ending',
+    runningLabel: 'Checking ending',
+    outputTitle: 'Ending preview',
+    outputHint: 'View conclusion strength.',
+    minWords: 20,
+  },
+  score: {
+    short: 'FS',
+    staticIcon: 'FS',
+    title: 'Full Essay Score',
+    intro: 'Full Essay Score gives a premium-style readiness report across structure, voice, evidence, specificity, and reflection.',
+    miniRows: [['Rubric', 'Structure, evidence, clarity, voice.'], ['Best for', 'Full draft review.'], ['Output', 'Detailed score report.']],
+    inputTitle: 'Full Essay Score',
+    inputHint: 'Paste the full essay for a rubric-style readiness report.',
+    placeholder: 'Paste the full essay draft. Full Essay Score will review structure, evidence, voice, specificity, and readiness.',
+    runLabel: 'Run Full Score',
+    runningLabel: 'Scoring essay',
+    outputTitle: 'Full Essay Score',
+    outputHint: 'View the premium score dashboard.',
+    minWords: 50,
+  },
+  'prompt-fit': {
+    short: 'PF',
+    staticIcon: 'PF',
+    title: 'Prompt Fit',
+    intro: 'Prompt Fit checks whether the draft fully answers the assignment or application prompt.',
+    miniRows: [['Checks', 'Prompt coverage and missing asks.'], ['Best for', 'Final review before submitting.'], ['Output', 'Prompt gaps and alignment notes.']],
+    inputTitle: 'Prompt Fit',
+    inputHint: 'Paste the prompt above and the essay below.',
+    placeholder: 'Paste the essay draft. Prompt Fit will compare it against the optional prompt above and flag missing asks.',
+    runLabel: 'Check Prompt Fit',
+    runningLabel: 'Checking prompt fit',
+    outputTitle: 'Prompt Fit',
+    outputHint: 'View prompt coverage and missing asks.',
+    minWords: 50,
+  },
+};
 
 function wordsFrom(text: string) {
   return text.trim() ? text.trim().split(/\s+/) : [];
@@ -345,16 +507,125 @@ function renderToolIcon(id: string) {
   );
 }
 
+function buildToolResult(toolId: ToolId, essay: string, prompt: string): ToolResult {
+  const firstSentence = essay.trim().split(/(?<=[.!?])\s+/)[0] || 'Your draft has a workable starting point.';
+  const thesisRewrite = prompt.trim()
+    ? `${prompt.trim().replace(/[.!?]+$/, '')}: the strongest version should name a clear position, a specific reason, and the outcome that matters.`
+    : 'A stronger thesis should name the main claim, the specific reason, and why that reason matters.';
+
+  if (toolId === 'thesis') {
+    return {
+      toolId,
+      score: 72,
+      headline: 'Clear idea, but the claim needs sharper stakes.',
+      summary: 'The thesis is understandable, but it reads more like a topic sentence than a debatable position.',
+      chips: [
+        { title: 'What works', body: 'The reader can tell the broad topic and direction quickly.' },
+        { title: 'What is missing', body: 'Add a more specific reason and make the position easier to argue.' },
+        { title: 'Try this', body: thesisRewrite },
+        { title: 'Next step', body: 'Build body paragraphs around one reason, one example, and one consequence.' },
+      ],
+    };
+  }
+
+  if (toolId === 'outline') {
+    return {
+      toolId,
+      headline: 'A five-part outline is ready to draft.',
+      summary: 'The plan gives the student a hook, two main points, a counterpoint, and a conclusion path.',
+      chips: [
+        { title: 'Hook + context', body: 'Open with a concrete moment related to the prompt, then introduce the central question.' },
+        { title: 'Body point one', body: 'Use the strongest reason from the thesis and support it with a specific example.' },
+        { title: 'Body point two', body: 'Add a second reason that shows growth, consequence, or contrast.' },
+        { title: 'Conclusion', body: 'Return to the opening moment and explain what the reader should remember.' },
+      ],
+    };
+  }
+
+  if (toolId === 'paragraph') {
+    return {
+      toolId,
+      headline: 'The paragraph can be clearer without losing voice.',
+      summary: 'The original idea works. The fix adds a concrete scene, trims repetition, and makes the reflection land.',
+      chips: [
+        { title: 'Original focus', body: firstSentence },
+        { title: 'Polished version', body: 'I started the activity unsure of where I fit, but one specific mistake showed me what I needed to practice. Each attempt after that made the work feel less intimidating and more like something I could improve through effort.' },
+        { title: 'What changed', body: 'The rewrite adds a clearer moment, removes broad phrasing, and connects action to growth.' },
+        { title: 'Keep your voice', body: 'Use words you would actually say. The goal is cleaner, not fancier.' },
+      ],
+    };
+  }
+
+  if (toolId === 'evidence') {
+    return {
+      toolId,
+      score: 64,
+      headline: 'Several claims need more concrete proof.',
+      summary: 'The paragraph has claims, but some still need examples, details, or a quick contrast to feel believable.',
+      chips: [
+        { title: 'Strongest claim', body: 'Keep the claim that has a specific action or outcome attached to it.' },
+        { title: 'Proof gap', body: 'Add one moment where the reader can see what happened, not just what you learned.' },
+        { title: 'Evidence idea', body: 'Use a number, a brief scene, a quote, or a before/after contrast.' },
+        { title: 'Next revision', body: 'After every claim, ask: “How would a skeptical reader know this is true?”' },
+      ],
+    };
+  }
+
+  if (toolId === 'score') {
+    return {
+      toolId,
+      score: 86,
+      headline: 'Strong draft with one evidence gap.',
+      summary: 'The essay has a believable growth arc. Stronger concrete proof would make it feel more admissions-ready.',
+      chips: [
+        { title: 'Specificity', body: 'Good moments are present, but two claims need sharper scenes.' },
+        { title: 'Structure', body: 'Clear beginning, turn, and ending. The order is easy to follow.' },
+        { title: 'Voice', body: 'The tone feels personal and not over-polished.' },
+        { title: 'Top fix', body: 'Add one later example where your improved leadership changed the team outcome.' },
+      ],
+    };
+  }
+
+  if (toolId === 'prompt-fit') {
+    return {
+      toolId,
+      score: 76,
+      headline: 'Most of the prompt is covered, but one ask is missing.',
+      summary: 'The draft addresses the challenge and response, but needs a clearer future connection.',
+      chips: [
+        { title: 'Covered', body: 'The essay describes a challenge and explains the immediate response.' },
+        { title: 'Partial', body: 'The reflection is present, but it should show one new behavior that proves the change.' },
+        { title: 'Missing ask', body: 'Add one sentence that shows how this growth affects what you will contribute next.' },
+        { title: 'Suggested bridge', body: 'Now, before I lead with my own idea, I ask what the team has already noticed.' },
+      ],
+    };
+  }
+
+  return {
+    toolId,
+    score: 74,
+    headline: 'The ending is clear, but it can be more memorable.',
+    summary: 'The conclusion closes the topic, but it should return to a concrete image or insight instead of a broad final sentence.',
+    chips: [
+      { title: 'What works', body: 'The ending does not introduce a new argument, which keeps it focused.' },
+      { title: 'What feels flat', body: 'The final line is broad. It could belong to many essays.' },
+      { title: 'Stronger ending', body: 'End by returning to the most specific moment in the essay and showing why it matters now.' },
+      { title: 'Final move', body: 'Replace “I learned a lot” with one precise change in how you think or act.' },
+    ],
+  };
+}
+
 export default function EssayLabPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const isPro = (session?.user as any)?.subscription_status === 'pro' || (session?.user as any)?.subscription_status === 'premium';
 
-  const [selectedTool, setSelectedTool] = useState('reader');
+  const [selectedTool, setSelectedTool] = useState<ToolId>('reader');
   const [readerRole, setReaderRole] = useState<ReaderRole>('teacher');
   const [prompt, setPrompt] = useState('Explain how a challenge shaped your perspective with clear evidence and reflection.');
   const [essay, setEssay] = useState('When I joined the robotics team, I thought my job was to be the person with the best ideas. At our first competition, our robot stopped moving during the second round, and I kept suggesting fixes before listening to anyone else. My teammate Maya finally asked me to stop talking and check the wiring with her. We found a loose connector in three minutes. That moment taught me that leadership is not always being the loudest person in the room. Sometimes it is slowing down enough to help the team think clearly.');
   const [result, setResult] = useState<ReaderResult | null>(null);
+  const [toolResult, setToolResult] = useState<ToolResult | null>(null);
   const [activePane, setActivePane] = useState<'input' | 'output'>('input');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -363,7 +634,10 @@ export default function EssayLabPage() {
   const promptWords = useMemo(() => wordsFrom(prompt).length, [prompt]);
   const essayWords = useMemo(() => wordsFrom(essay).length, [essay]);
   const freeLeft = remaining ?? FREE_DAILY_LIMIT;
-  const canRun = essayWords >= 50 && !loading && selectedTool === 'reader';
+  const selectedContent = TOOL_CONTENT[selectedTool];
+  const selectedToolMeta = TOOLS.find(tool => tool.id === selectedTool) ?? TOOLS[0];
+  const isRunnable = RUNNABLE_TOOL_IDS.includes(selectedTool);
+  const canRun = essayWords >= selectedContent.minWords && !loading && isRunnable;
 
   function setLimitedPrompt(value: string) {
     setPrompt(clampWords(value, 100));
@@ -389,8 +663,11 @@ export default function EssayLabPage() {
       return;
     }
     setSelectedTool(tool.id);
-    if (tool.id !== 'reader') {
-      setError(`${tool.title} is coming soon. Reader Simulator is ready today.`);
+    setActivePane('input');
+    setResult(null);
+    setToolResult(null);
+    if (!RUNNABLE_TOOL_IDS.includes(tool.id)) {
+      setError(`${tool.title} is a Pro tool. Use the free Essay Lab tools or open Essay Studio for full drafting.`);
       setActivePane('input');
       return;
     }
@@ -406,15 +683,29 @@ export default function EssayLabPage() {
     setError('');
   }
 
-  async function runReader() {
+  async function runActiveTool() {
     if (!canRun) {
-      setError(essayWords < 50 ? 'Paste at least 50 words so the reader has enough to evaluate.' : 'Reader Simulator is the active free tool.');
+      setError(essayWords < selectedContent.minWords ? `Paste at least ${selectedContent.minWords} words so ${selectedContent.title} has enough to evaluate.` : `${selectedContent.title} is not available in this mode.`);
+      return;
+    }
+
+    if (selectedTool !== 'reader') {
+      setLoading(true);
+      setError('');
+      setResult(null);
+      setToolResult(null);
+      window.setTimeout(() => {
+        setToolResult(buildToolResult(selectedTool, essay, prompt));
+        setActivePane('output');
+        setLoading(false);
+      }, 260);
       return;
     }
 
     setLoading(true);
     setError('');
     setResult(null);
+    setToolResult(null);
 
     try {
       const response = await fetch('/api/essays/reader-simulator', {
@@ -455,7 +746,16 @@ export default function EssayLabPage() {
   }
 
   const isOutputOpen = activePane === 'output';
-  const outputTitle = readerRole === 'teacher' ? 'Teacher readiness' : 'Admissions read';
+  const outputTitle = selectedTool === 'reader' ? (readerRole === 'teacher' ? 'Teacher readiness' : 'Admissions read') : selectedContent.outputTitle;
+  const outputHint = selectedTool === 'reader'
+    ? (readerRole === 'teacher' ? 'View teacher-style feedback.' : 'View admissions-style feedback.')
+    : selectedContent.outputHint;
+  const readerIntro = selectedTool === 'reader' && readerRole === 'admissions_officer'
+    ? 'Admissions Reader previews how a college application reader may react after one pass. It focuses on memorability, differentiation, reader risk, and the revision that makes the applicant signal clearer.'
+    : selectedContent.intro;
+  const readerMiniRows = selectedTool === 'reader' && readerRole === 'admissions_officer'
+    ? [['Reader', 'College admissions officer review for application essays.'], ['Lens', 'Memorability, differentiation, and file-reader risk.'], ['Output', 'Committee snapshot, reader risk, and best next move.']] as Array<[string, string]>
+    : selectedContent.miniRows;
   const grade = result ? scoreToGrade(result.overall_score) : 'Ready';
 
   return (
@@ -624,26 +924,28 @@ export default function EssayLabPage() {
           <section className="launchArea">
             <aside className="infoPane">
               <div className="staticTitle">
-                <div className="staticIcon">TR</div>
+                <div className="staticIcon">{selectedContent.staticIcon}</div>
                 <div>
-                  <h2>Reader Simulator</h2>
-                  <p>Preview how a real reader may react to your essay.</p>
+                  <h2>{selectedContent.title}</h2>
+                  <p>{selectedToolMeta.desc}</p>
                 </div>
               </div>
 
-              <div className="readerSwitch" aria-label="Reader mode selector">
-                <button type="button" className={readerRole === 'teacher' ? 'active' : ''} onClick={() => chooseReaderRole('teacher')}>Teacher</button>
-                <button type="button" className={readerRole === 'admissions_officer' ? 'active proMode' : 'proMode'} onClick={() => chooseReaderRole('admissions_officer')}>
-                  Admissions {!isPro && <b>PRO</b>}
-                </button>
-              </div>
+              {selectedTool === 'reader' && (
+                <div className="readerSwitch" aria-label="Reader mode selector">
+                  <button type="button" className={readerRole === 'teacher' ? 'active' : ''} onClick={() => chooseReaderRole('teacher')}>Teacher</button>
+                  <button type="button" className={readerRole === 'admissions_officer' ? 'active proMode' : 'proMode'} onClick={() => chooseReaderRole('admissions_officer')}>
+                    Admissions {!isPro && <b>PRO</b>}
+                  </button>
+                </div>
+              )}
 
-              <p className="staticCopy">Teacher Review previews how a school essay may land with a classroom reader. It focuses on first impression, rubric risks, and the fixes that make the draft feel ready.</p>
+              <p className="staticCopy">{readerIntro}</p>
 
               <div className="miniStack">
-                <div className="miniRow"><b>Reader</b> High school teacher review for class essays.</div>
-                <div className="miniRow"><b>Strictness</b> Balanced feedback with practical comments.</div>
-                <div className="miniRow"><b>Output</b> First impression, concerns, and top fixes.</div>
+                {readerMiniRows.map(([label, body]) => (
+                  <div className="miniRow" key={label}><b>{label}</b> {body}</div>
+                ))}
               </div>
 
               {!isPro && (
@@ -660,8 +962,8 @@ export default function EssayLabPage() {
                 <button type="button" className="workHead" onClick={() => setActivePane('input')}>
                   <span className="workNum">1</span>
                   <span className="workTitle">
-                    <strong>Essay Input</strong>
-                    <small>Paste the prompt and essay, then run the reader.</small>
+                    <strong>{selectedContent.inputTitle}</strong>
+                    <small>{selectedContent.inputHint}</small>
                   </span>
                   <span className="workState">{essayWords} / 1500 words</span>
                 </button>
@@ -682,16 +984,16 @@ export default function EssayLabPage() {
                     value={essay}
                     onChange={event => setLimitedEssay(event.target.value)}
                     onPaste={event => handleLimitedPaste(event, 1500, setLimitedEssay, essay)}
-                    placeholder="Paste or write your essay here. Reader Simulator will preview how it may land with a high school teacher."
+                    placeholder={selectedContent.placeholder}
                   />
 
                   {error && <div className="errorBanner"><i className="fas fa-circle-exclamation" /> {error}</div>}
 
                   <div className="actions">
                     <p>Uses one free daily check. Results expand in the output panel.</p>
-                    {loading && <span className="loadingDots">Reading draft</span>}
-                    <button className="runButton" type="button" onClick={runReader} disabled={!canRun}>
-                      {loading ? 'Running...' : result ? 'Run again' : 'Run Reader Simulator'}
+                    {loading && <span className="loadingDots">{selectedContent.runningLabel}</span>}
+                    <button className="runButton" type="button" onClick={runActiveTool} disabled={!canRun}>
+                      {loading ? 'Running...' : result || toolResult ? 'Run again' : selectedContent.runLabel}
                     </button>
                   </div>
                 </div>
@@ -702,39 +1004,323 @@ export default function EssayLabPage() {
                   <span className="workNum">2</span>
                   <span className="workTitle">
                     <strong>{outputTitle}</strong>
-                    <small>{result ? 'View generated feedback.' : 'View teacher-style feedback.'}</small>
+                    <small>{result || toolResult ? 'View generated feedback.' : outputHint}</small>
                   </span>
-                  <span className="workState">{result ? 'Complete' : 'Ready'}</span>
+                  <span className="workState">{result || toolResult ? 'Complete' : 'Ready'}</span>
                 </button>
 
                 <div className="workBody outputBody">
-                  <div className="readiness">
-                    <div>
-                      <span>2. {outputTitle}</span>
-                      <h3>{result?.verdict_sentence ?? 'Run the reader to generate a result'}</h3>
-                      <p>{result?.first_impression ?? 'Teacher-style feedback will appear here after the draft is reviewed.'}</p>
-                    </div>
-                    <b>{grade}</b>
-                  </div>
+                  {selectedTool === 'reader' ? (
+                    readerRole === 'admissions_officer' ? (
+                      <>
+                        <div className="admissionsHero">
+                          <div>
+                            <span>2. Admissions read</span>
+                            <h3>{result?.verdict_sentence ?? 'Run the admissions reader to preview committee impact'}</h3>
+                            <p>{result?.first_impression ?? 'Admissions-style feedback will focus on memorability, differentiation, and reader risk.'}</p>
+                          </div>
+                          <div className="admitScore">
+                            <small>Read strength</small>
+                            <b>{result ? result.overall_score : '--'}</b>
+                          </div>
+                        </div>
 
-                  <div className="outputGrid">
-                    <div className="outputChip wide">
-                      <h3>First impression</h3>
-                      <p>{result?.first_impression ?? 'The first read will summarize what stands out immediately.'}</p>
+                        <div className="admissionsGrid">
+                          <article className="admissionCard wide">
+                            <div className="admissionCardHead">
+                              <h3>Committee Snapshot</h3>
+                              <span className="admitTag">{result ? `${result.overall_score}/100` : 'Pending'}</span>
+                            </div>
+                            <p>{result?.first_impression ?? 'The first read will summarize what an admissions reader is likely to remember after one pass.'}</p>
+                          </article>
+
+                          <article className="admissionCard">
+                            <div className="admissionCardHead">
+                              <h3>Memorable Signal</h3>
+                              <span className="admitDot good" />
+                            </div>
+                            <p>{result?.key_strengths?.join(' ') || 'The strongest applicant signal will appear here after analysis.'}</p>
+                          </article>
+
+                          <article className="admissionCard">
+                            <div className="admissionCardHead">
+                              <h3>Reader Risk</h3>
+                              <span className="admitDot warn" />
+                            </div>
+                            <p>{result?.key_concerns?.join(' ') || 'The biggest risk to differentiation will appear here after analysis.'}</p>
+                          </article>
+
+                          <article className="admissionCard wide">
+                            <div className="admissionCardHead">
+                              <h3>What They May Remember</h3>
+                              <span className="admitTag">After review</span>
+                            </div>
+                            <p>{result?.would_remember ?? 'A one-line memory test will appear here: what the reader may remember about this applicant after the file moves on.'}</p>
+                          </article>
+
+                          <article className="admissionCard nextMove">
+                            <div className="admissionCardHead">
+                              <h3>Best Next Move</h3>
+                              <span className="admitTag">Revise</span>
+                            </div>
+                            <p>{result?.question_for_student ?? 'The next revision question will appear here after the admissions read runs.'}</p>
+                          </article>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="readiness">
+                          <div>
+                            <span>2. {outputTitle}</span>
+                            <h3>{result?.verdict_sentence ?? 'Run the reader to generate a result'}</h3>
+                            <p>{result?.first_impression ?? 'Teacher-style feedback will appear here after the draft is reviewed.'}</p>
+                          </div>
+                          <b>{grade}</b>
+                        </div>
+
+                        <div className="outputGrid">
+                          <div className="outputChip wide">
+                            <h3>First impression</h3>
+                            <p>{result?.first_impression ?? 'The first read will summarize what stands out immediately.'}</p>
+                          </div>
+                          <div className="outputChip">
+                            <h3>What feels strongest</h3>
+                            <p>{result?.key_strengths?.join(' ') || 'Strengths will appear after analysis.'}</p>
+                          </div>
+                          <div className="outputChip">
+                            <h3>What may cost points</h3>
+                            <p>{result?.key_concerns?.join(' ') || 'Risks and concerns will appear after analysis.'}</p>
+                          </div>
+                          <div className="outputChip wide">
+                            <h3>Top fixes</h3>
+                            <p>{result ? `${result.would_remember} ${result.question_for_student}` : 'A short revision path will appear here.'}</p>
+                          </div>
+                        </div>
+                      </>
+                    )
+                  ) : (
+                    <div className={`mockOutput ${selectedTool}`}>
+                      {selectedTool === 'thesis' && (
+                        <>
+                          <article className="mockCard thesisResult">
+                            <div className="mockCardHead">
+                              <h3>Thesis Result</h3>
+                              <span className="mockTag">Needs focus</span>
+                            </div>
+                            <div className="mockResultBody">
+                              <div className="mockScoreRow">
+                                <div className="mockScoreRing">72</div>
+                                <div className="mockMeters">
+                                  <div className="mockMeter">Clarity <span><i style={{ width: '82%' }} /></span></div>
+                                  <div className="mockMeter">Specificity <span><i style={{ width: '54%' }} /></span></div>
+                                  <div className="mockMeter">Arguable claim <span><i style={{ width: '46%' }} /></span></div>
+                                </div>
+                              </div>
+                              <div className="mockInsightGrid">
+                                <div className="mockInsight"><b>What works</b><p>The thesis is easy to understand and names the broad topic.</p></div>
+                                <div className="mockInsight"><b>What is missing</b><p>It needs a sharper reason and a more debatable position.</p></div>
+                                <div className="mockInsight"><b>Try this</b><p>{toolResult?.chips?.[2]?.body ?? 'Schools should use technology when it gives students faster feedback and more personalized practice.'}</p></div>
+                                <div className="mockInsight"><b>Next step</b><p>Build body paragraphs around feedback speed and personalization.</p></div>
+                              </div>
+                            </div>
+                          </article>
+                        </>
+                      )}
+
+                      {selectedTool === 'outline' && (
+                        <>
+                          <article className="mockCard">
+                            <div className="mockCardHead">
+                              <h3>Generated Outline</h3>
+                              <span className="mockTag">5 paragraphs</span>
+                            </div>
+                            <div className="outlineStack">
+                              {[
+                                ['Hook + context', 'Open with a classroom moment where the main idea is visible, then introduce the debate.'],
+                                ['Reason one', 'Use the strongest reason from the thesis and support it with a specific example.'],
+                                ['Reason two', 'Add a second reason that shows growth, consequence, or contrast.'],
+                                ['Counterargument', 'Acknowledge the strongest objection, then explain why your position still holds.'],
+                                ['Conclusion', 'Return to the opening moment and explain what the reader should remember.'],
+                              ].map(([title, body], index) => (
+                                <div className="outlineStep" key={title}>
+                                  <span>{index + 1}</span>
+                                  <div><h4>{title}</h4><p>{body}</p></div>
+                                </div>
+                              ))}
+                            </div>
+                          </article>
+                          <aside className="mockNotes">
+                            <div className="mockNote"><strong>Essay shape</strong><p>Argument essay with two reasons and one counterargument.</p></div>
+                            <div className="mockNote"><strong>Evidence to add</strong><p>Use one personal example, one concrete detail, and one contrast.</p></div>
+                            <div className="mockNote"><strong>Upgrade moment</strong><p>Send this outline into Essay Studio to draft in the student’s voice.</p></div>
+                          </aside>
+                        </>
+                      )}
+
+                      {selectedTool === 'paragraph' && (
+                        <>
+                          <article className="compareCard">
+                            <div className="mockCardHead">
+                              <h3>Before / After</h3>
+                              <span className="mockTag">Voice preserved</span>
+                            </div>
+                            <div className="compareBody">
+                              <div className="draftSide">I was nervous about joining the debate team because I did not know anyone and I was scared to talk in front of people. My first tournament was bad and I forgot some of my points. But after that I practiced more and became more confident.</div>
+                              <div className="fixedSide">I joined the debate team feeling like the quietest person in the room. At my first tournament, I lost my place halfway through my argument and rushed through the rest. <span>That mistake became useful</span>: it showed me exactly what I needed to practice, and each round after that made speaking feel less impossible.</div>
+                            </div>
+                          </article>
+                          <aside className="fixList">
+                            <div className="fixItem"><span>1</span><div><b>Sharper opening</b><p>Starts with a scene instead of a broad summary.</p></div></div>
+                            <div className="fixItem"><span>2</span><div><b>More specific moment</b><p>Names the exact tournament problem so the growth feels earned.</p></div></div>
+                            <div className="fixItem"><span>3</span><div><b>Cleaner reflection</b><p>Connects the setback to practice and confidence without sounding generic.</p></div></div>
+                          </aside>
+                        </>
+                      )}
+
+                      {selectedTool === 'evidence' && (
+                        <>
+                          <article className="mockCard">
+                            <div className="mockCardHead">
+                              <h3>Claim Map</h3>
+                              <span className="mockTag">3 gaps found</span>
+                            </div>
+                            <div className="evidenceMap">
+                              {[
+                                ['Claim 1', '“This experience changed me.” Needs a specific before/after moment.', '42%'],
+                                ['Claim 2', '“I became a better leader.” Good claim, but add an action the reader can see.', '64%'],
+                                ['Claim 3', '“The team trusted me more.” Needs a result, quote, or concrete response.', '36%'],
+                                ['Claim 4', '“I learned to listen first.” Strongest point. Keep and support with one scene.', '82%'],
+                              ].map(([label, body, width]) => (
+                                <div className="claimRow" key={label}>
+                                  <strong>{label}</strong>
+                                  <p>{body}</p>
+                                  <div className="strength"><i style={{ width }} /></div>
+                                </div>
+                              ))}
+                            </div>
+                          </article>
+                          <aside className="sourceCard">
+                            <div className="sourceChip"><b>Add a specific example</b><p>Describe one moment where the claim became visible.</p></div>
+                            <div className="sourceChip"><b>Add a contrast</b><p>Show what changed from before to after.</p></div>
+                            <div className="sourceChip"><b>Add a result</b><p>Name what happened because of the action.</p></div>
+                          </aside>
+                        </>
+                      )}
+
+                      {selectedTool === 'conclusion' && (
+                        <>
+                          <article className="mockCard">
+                            <div className="mockCardHead">
+                              <h3>Ending Preview</h3>
+                              <span className="mockTag">Almost there</span>
+                            </div>
+                            <div className="endingPreview">
+                              <div className="endingCard"><span className="mockTag">Current ending</span><h4>Feels clear, but a little flat</h4><p>This experience taught me many important lessons and helped me become a better person. I will use these lessons in the future.</p></div>
+                              <div className="endingCard"><span className="mockTag">Stronger version</span><h4>Returns to the real moment</h4><p>I still pause before jumping in with my own idea. That pause reminds me that leadership is not being the loudest person in the room; it is making enough space for the team to think clearly.</p></div>
+                            </div>
+                          </article>
+                          <aside className="mockNotes">
+                            <div className="endingScore"><div><b>84</b><span>Closure</span></div><div><b>71</b><span>Reflection</span></div><div><b>67</b><span>Memory</span></div></div>
+                            <div className="mockNote"><strong>What works</strong><p>The ending restates the growth without introducing a new idea.</p></div>
+                            <div className="mockNote"><strong>What to improve</strong><p>End with a concrete image instead of a broad lesson phrase.</p></div>
+                          </aside>
+                        </>
+                      )}
+
+                      {selectedTool === 'score' && (
+                        <>
+                          <article className="scoreDashboard">
+                            <aside className="overallScore">
+                              <div>
+                                <small>Overall readiness</small>
+                                <div className="bigScore">{toolResult?.score ?? 86}</div>
+                              </div>
+                              <div>
+                                <h3>{toolResult?.headline ?? 'Strong draft with one evidence gap.'}</h3>
+                                <p>{toolResult?.summary ?? 'The essay has a believable growth arc. Stronger concrete proof would make it feel more admissions-ready.'}</p>
+                              </div>
+                            </aside>
+
+                            <section className="rubricGrid">
+                              {[
+                                ['Specificity', '82', 'Good moments are present, but two claims need sharper scenes.', '82%'],
+                                ['Structure', '90', 'Clear beginning, turn, and ending. The order is easy to follow.', '90%'],
+                                ['Voice', '88', 'The tone feels personal and not over-polished.', '88%'],
+                                ['Reflection', '79', 'The lesson is clear but could connect more tightly to a future action.', '79%'],
+                              ].map(([label, score, body, width]) => (
+                                <div className="rubricCard" key={label}>
+                                  <header><h4>{label}</h4><b>{score}</b></header>
+                                  <div className="rubricBar"><i style={{ width }} /></div>
+                                  <p>{body}</p>
+                                </div>
+                              ))}
+                            </section>
+                          </article>
+
+                          <aside className="annotationBoard">
+                            {[
+                              ['Opening', 'Strong setup. Add one concrete sensory detail so the reader enters the moment faster.'],
+                              ['Middle paragraph', 'This is the biggest opportunity: show what changed in your behavior, not only what you realized.'],
+                              ['Evidence gap', 'The claim about team trust needs a result, quote, or visible response.'],
+                              ['Recommended next step', 'Move this draft into Essay Studio and revise the middle paragraph first.'],
+                            ].map(([title, body]) => (
+                              <div className="annotation" key={title}>
+                                <strong>{title}</strong>
+                                <p>{body}</p>
+                              </div>
+                            ))}
+                          </aside>
+                        </>
+                      )}
+
+                      {selectedTool === 'prompt-fit' && (
+                        <>
+                          <article className="promptFitCard">
+                            <div className="mockCardHead">
+                              <h3>Prompt Requirements</h3>
+                              <span className="mockTag">4 asks detected</span>
+                            </div>
+                            <div className="promptBody">
+                              {[
+                                ['1', 'Describe a challenge or setback you experienced.', 'Covered', true],
+                                ['2', 'Explain what you did in response.', 'Covered', true],
+                                ['3', 'Reflect on how the experience changed you.', 'Partial', false],
+                                ['4', 'Connect that change to future goals or contribution.', 'Missing', false],
+                              ].map(([num, body, status, good]) => (
+                                <div className="promptLine" key={String(num)}>
+                                  <span>{num}</span>
+                                  <p>{body}</p>
+                                  <b className={`status ${good ? 'good' : ''}`}>{status}</b>
+                                </div>
+                              ))}
+                            </div>
+                          </article>
+
+                          <aside className="coverageCard">
+                            <div className="mockCardHead">
+                              <h3>Coverage Score</h3>
+                              <span className="mockTag">Needs one addition</span>
+                            </div>
+                            <div className="coverageBody">
+                              <div className="coverageRing">{toolResult?.score ?? 76}</div>
+                              <div className="missList">
+                                {[
+                                  ['Missing ask', 'Add one sentence that shows how this growth affects what you will contribute next.'],
+                                  ['Partial reflection', 'The essay says you changed, but it should show one new behavior that proves it.'],
+                                  ['Suggested bridge', '“Now, before I lead with my own idea, I ask what the team has already noticed.”'],
+                                ].map(([title, body]) => (
+                                  <div className="missItem" key={title}>
+                                    <b>{title}</b>
+                                    <p>{body}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </aside>
+                        </>
+                      )}
                     </div>
-                    <div className="outputChip">
-                      <h3>What feels strongest</h3>
-                      <p>{result?.key_strengths?.join(' ') || 'Strengths will appear after analysis.'}</p>
-                    </div>
-                    <div className="outputChip">
-                      <h3>What may cost points</h3>
-                      <p>{result?.key_concerns?.join(' ') || 'Risks and concerns will appear after analysis.'}</p>
-                    </div>
-                    <div className="outputChip wide">
-                      <h3>Top fixes</h3>
-                      <p>{result ? `${result.would_remember} ${result.question_for_student}` : 'A short revision path will appear here.'}</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </article>
             </section>
@@ -2421,8 +3007,769 @@ export default function EssayLabPage() {
             font: 400 15px/1.75 'DM Sans', system-ui, sans-serif;
           }
 
+          .admissionsHero {
+            margin: -16px -16px 2px;
+            border-radius: 22px 22px 0 0;
+            background:
+              radial-gradient(circle at 88% 20%, rgba(255,229,0,.28), transparent 28%),
+              linear-gradient(135deg, ${NAVY}, #0b3f96);
+            color: #fff;
+            padding: 24px 26px;
+            min-height: 138px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            overflow: hidden;
+            position: relative;
+          }
+
+          .admissionsHero::after {
+            content: "";
+            position: absolute;
+            right: -44px;
+            bottom: -62px;
+            width: 190px;
+            height: 190px;
+            border-radius: 44px;
+            background: rgba(255,255,255,.08);
+            transform: rotate(18deg);
+          }
+
+          .admissionsHero > * {
+            position: relative;
+            z-index: 1;
+          }
+
+          .admissionsHero span,
+          .admitScore small {
+            display: block;
+            color: rgba(255,255,255,.75);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .15px;
+          }
+
+          .admissionsHero h3 {
+            margin: 7px 0 7px;
+            color: #fff;
+            font-size: 22px;
+            line-height: 1.15;
+            font-weight: 900;
+          }
+
+          .admissionsHero p {
+            max-width: 720px;
+            margin: 0;
+            color: rgba(255,255,255,.78);
+            font-size: 14px;
+            line-height: 1.55;
+            font-weight: 700;
+          }
+
+          .admitScore {
+            min-width: 118px;
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 22px;
+            padding: 15px 16px;
+            background: rgba(255,255,255,.1);
+            text-align: center;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.1);
+          }
+
+          .admitScore b {
+            display: block;
+            margin-top: 6px;
+            color: ${YELLOW};
+            font-size: 44px;
+            line-height: .95;
+            font-weight: 950;
+          }
+
+          .admissionsGrid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+          }
+
+          .admissionCard {
+            border: 1px solid #dfe8f6;
+            border-radius: 18px;
+            background:
+              radial-gradient(circle at 95% 10%, rgba(255,229,0,.12), transparent 24%),
+              #fff;
+            padding: 16px;
+            box-shadow: 0 10px 24px rgba(15,23,42,.045);
+            min-width: 0;
+          }
+
+          .admissionCard.wide {
+            grid-column: 1 / -1;
+          }
+
+          .admissionCard.nextMove {
+            grid-column: 1 / -1;
+            border-color: rgba(6,36,91,.18);
+            background: linear-gradient(135deg, #fff, #f8fbff);
+          }
+
+          .admissionCardHead {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+          }
+
+          .admissionCard h3 {
+            margin: 0;
+            color: ${NAVY};
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .28px;
+            font-weight: 950;
+          }
+
+          .admissionCard p {
+            margin: 0;
+            color: #64748b;
+            font: 400 15px/1.75 'DM Sans', system-ui, sans-serif;
+          }
+
+          .admitTag {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 6px 9px;
+            background: #edf4ff;
+            color: ${NAVY};
+            font-size: 10px;
+            line-height: 1;
+            font-weight: 950;
+            white-space: nowrap;
+          }
+
+          .admitDot {
+            width: 13px;
+            height: 13px;
+            border-radius: 999px;
+            background: #94a3b8;
+            box-shadow: 0 0 0 5px rgba(148,163,184,.16);
+            flex: 0 0 auto;
+          }
+
+          .admitDot.good {
+            background: #10b981;
+            box-shadow: 0 0 0 5px rgba(16,185,129,.15);
+          }
+
+          .admitDot.warn {
+            background: ${YELLOW};
+            box-shadow: 0 0 0 5px rgba(255,229,0,.22);
+          }
+
+          .mockOutput {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(260px, .58fr);
+            gap: 16px;
+            width: 100%;
+            min-width: 0;
+          }
+
+          .mockOutput > * {
+            min-width: 0;
+          }
+
+          .mockOutput.thesis {
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .mockOutput.score {
+            grid-template-columns: minmax(0, 1fr) minmax(280px, .52fr);
+          }
+
+          .mockOutput.prompt-fit {
+            grid-template-columns: minmax(0, 1fr) minmax(260px, .58fr);
+          }
+
+          .mockCard,
+          .compareCard {
+            border: 1px solid #dfe8f6;
+            border-radius: 18px;
+            background: #fff;
+            overflow: hidden;
+            box-shadow: 0 10px 24px rgba(15,23,42,.045);
+            min-width: 0;
+          }
+
+          .mockCardHead {
+            padding: 14px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+          }
+
+          .mockCardHead h3 {
+            margin: 0;
+            color: ${NAVY};
+            font-size: 13px;
+            letter-spacing: .22px;
+            text-transform: uppercase;
+            font-weight: 900;
+          }
+
+          .mockTag {
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            border-radius: 999px;
+            padding: 6px 9px;
+            background: #edf4ff;
+            color: ${NAVY};
+            font-size: 10px;
+            line-height: 1;
+            font-weight: 900;
+          }
+
+          .mockResultBody {
+            padding: 16px;
+            display: grid;
+            gap: 14px;
+          }
+
+          .mockScoreRow {
+            display: grid;
+            grid-template-columns: 96px 1fr;
+            gap: 14px;
+            align-items: center;
+          }
+
+          .mockScoreRing {
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: conic-gradient(${YELLOW} 0 282deg, #e8eef7 0);
+            color: ${NAVY};
+            font-size: 28px;
+            font-weight: 950;
+            box-shadow: inset 0 0 0 10px rgba(255,255,255,.75), 0 10px 24px rgba(15,23,42,.08);
+          }
+
+          .mockMeters {
+            display: grid;
+            gap: 9px;
+          }
+
+          .mockMeter {
+            display: grid;
+            gap: 5px;
+            color: ${NAVY};
+            font-size: 11px;
+            font-weight: 900;
+          }
+
+          .mockMeter span,
+          .strength {
+            height: 8px;
+            border-radius: 999px;
+            background: #edf4ff;
+            overflow: hidden;
+          }
+
+          .mockMeter i,
+          .strength i {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: ${NAVY};
+          }
+
+          .mockInsightGrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+          }
+
+          .mockInsight,
+          .mockNote,
+          .sourceChip {
+            border: 1px solid #dfe8f6;
+            border-radius: 15px;
+            padding: 12px;
+            background: #f8fbff;
+          }
+
+          .mockInsight b,
+          .mockNote strong,
+          .sourceChip b {
+            display: block;
+            color: ${NAVY};
+            font-size: 13px;
+            margin-bottom: 6px;
+            font-weight: 900;
+          }
+
+          .mockInsight p,
+          .mockNote p,
+          .sourceChip p {
+            margin: 0;
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.45;
+            font-weight: 700;
+          }
+
+          .outlineStack,
+          .evidenceMap,
+          .endingPreview,
+          .mockNotes,
+          .sourceCard,
+          .fixList {
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+          }
+
+          .outlineStep {
+            display: grid;
+            grid-template-columns: 36px 1fr;
+            gap: 12px;
+            padding: 13px;
+            border: 1px solid #dfe8f6;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 8px 18px rgba(15,23,42,.04);
+          }
+
+          .outlineStep span,
+          .fixItem > span {
+            width: 36px;
+            height: 36px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            background: ${NAVY};
+            color: ${YELLOW};
+            font-weight: 950;
+          }
+
+          .outlineStep h4 {
+            margin: 0 0 4px;
+            color: ${NAVY};
+            font-size: 14px;
+            font-weight: 900;
+          }
+
+          .outlineStep p {
+            margin: 0;
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.45;
+            font-weight: 700;
+          }
+
+          .compareBody {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 395px;
+          }
+
+          .draftSide,
+          .fixedSide {
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.72;
+            font-weight: 650;
+          }
+
+          .draftSide {
+            color: #64748b;
+            background: #fbfdff;
+            border-right: 1px solid #e2e8f0;
+          }
+
+          .fixedSide {
+            color: #26364d;
+            background:
+              radial-gradient(circle at 94% 8%, rgba(255,229,0,.18), transparent 28%),
+              #fff;
+          }
+
+          .fixedSide span {
+            border-radius: 8px;
+            padding: 1px 4px;
+            background: rgba(255,229,0,.45);
+            color: ${NAVY};
+            font-weight: 900;
+          }
+
+          .fixItem {
+            display: grid;
+            grid-template-columns: 34px 1fr;
+            gap: 10px;
+            padding: 12px;
+            border: 1px solid #dfe8f6;
+            border-radius: 15px;
+            background: #f8fbff;
+          }
+
+          .fixItem > span {
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+            font-size: 13px;
+          }
+
+          .fixItem b {
+            display: block;
+            color: ${NAVY};
+            font-size: 13px;
+            margin-bottom: 4px;
+          }
+
+          .fixItem p {
+            margin: 0;
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.42;
+            font-weight: 700;
+          }
+
+          .claimRow {
+            display: grid;
+            grid-template-columns: 76px 1fr 86px;
+            gap: 12px;
+            align-items: center;
+            padding: 13px;
+            border: 1px solid #dfe8f6;
+            border-radius: 16px;
+            background: #fff;
+          }
+
+          .claimRow strong {
+            color: ${NAVY};
+            font-size: 12px;
+          }
+
+          .claimRow p {
+            margin: 0;
+            color: #475569;
+            font-size: 12px;
+            line-height: 1.42;
+            font-weight: 700;
+          }
+
+          .sourceChip,
+          .mockNote {
+            background: linear-gradient(135deg, #fff, #f8fbff);
+          }
+
+          .endingCard {
+            border: 1px solid #dfe8f6;
+            border-radius: 17px;
+            padding: 15px;
+            background: #fff;
+            position: relative;
+            overflow: hidden;
+          }
+
+          .endingCard::after {
+            content: "";
+            position: absolute;
+            right: -36px;
+            bottom: -42px;
+            width: 120px;
+            height: 120px;
+            border-radius: 34px;
+            background: rgba(255,229,0,.22);
+            transform: rotate(14deg);
+          }
+
+          .endingCard > * {
+            position: relative;
+            z-index: 1;
+          }
+
+          .endingCard h4 {
+            margin: 10px 0 8px;
+            color: ${NAVY};
+            font-size: 14px;
+            font-weight: 900;
+          }
+
+          .endingCard p {
+            margin: 0;
+            color: #334155;
+            font-size: 14px;
+            line-height: 1.62;
+            font-weight: 650;
+          }
+
+          .endingScore {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+          }
+
+          .endingScore div {
+            border: 1px solid #dfe8f6;
+            border-radius: 15px;
+            padding: 12px;
+            background: #f8fbff;
+          }
+
+          .endingScore b {
+            display: block;
+            color: ${NAVY};
+            font-size: 22px;
+            line-height: 1;
+            margin-bottom: 5px;
+          }
+
+          .endingScore span {
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 900;
+          }
+
+          .scoreDashboard,
+          .promptFitCard,
+          .coverageCard,
+          .annotationBoard {
+            border: 1px solid #dfe8f6;
+            border-radius: 20px;
+            background: #fff;
+            box-shadow: 0 12px 28px rgba(15,23,42,.055);
+            overflow: hidden;
+            min-width: 0;
+          }
+
+          .scoreDashboard {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            gap: 16px;
+            padding: 16px;
+            background:
+              radial-gradient(circle at 96% 8%, rgba(255,229,0,.2), transparent 28%),
+              #fff;
+          }
+
+          .overallScore {
+            border-radius: 18px;
+            background: ${NAVY};
+            color: #fff;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 280px;
+          }
+
+          .overallScore small {
+            display: block;
+            margin-bottom: 14px;
+            color: rgba(255,255,255,.72);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .2px;
+          }
+
+          .bigScore {
+            color: ${YELLOW};
+            font-size: 68px;
+            line-height: .9;
+            font-weight: 950;
+          }
+
+          .overallScore h3 {
+            margin: 0 0 8px;
+            color: #fff;
+            font-size: 18px;
+            line-height: 1.15;
+            font-weight: 900;
+          }
+
+          .overallScore p {
+            margin: 0;
+            color: rgba(255,255,255,.78);
+            font-size: 13px;
+            line-height: 1.5;
+            font-weight: 700;
+          }
+
+          .rubricGrid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+          }
+
+          .rubricCard {
+            border: 1px solid #dfe8f6;
+            border-radius: 16px;
+            padding: 14px;
+            background: rgba(248,251,255,.92);
+          }
+
+          .rubricCard header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+          }
+
+          .rubricCard h4 {
+            margin: 0;
+            color: ${NAVY};
+            font-size: 13px;
+            font-weight: 900;
+          }
+
+          .rubricCard b {
+            color: ${NAVY};
+            font-size: 22px;
+            line-height: 1;
+            font-weight: 950;
+          }
+
+          .rubricBar {
+            height: 8px;
+            border-radius: 999px;
+            background: #e8eef7;
+            overflow: hidden;
+            margin-bottom: 10px;
+          }
+
+          .rubricBar i {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, ${NAVY}, #0f4fb7);
+          }
+
+          .rubricCard p,
+          .annotation p,
+          .promptLine p,
+          .missItem p {
+            margin: 0;
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.45;
+            font-weight: 700;
+          }
+
+          .annotationBoard {
+            display: grid;
+            gap: 12px;
+            padding: 16px;
+            background: linear-gradient(135deg, #fff, #f8fbff);
+          }
+
+          .annotation,
+          .missItem {
+            border: 1px solid #dfe8f6;
+            border-radius: 15px;
+            padding: 13px;
+            background: #fff;
+          }
+
+          .annotation strong,
+          .missItem b {
+            display: block;
+            margin-bottom: 6px;
+            color: ${NAVY};
+            font-size: 13px;
+            font-weight: 900;
+          }
+
+          .promptBody {
+            display: grid;
+            gap: 12px;
+            padding: 16px;
+          }
+
+          .promptLine {
+            display: grid;
+            grid-template-columns: 38px minmax(0, 1fr) 78px;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid #dfe8f6;
+            border-radius: 16px;
+            padding: 13px;
+            background: #fff;
+          }
+
+          .promptLine span {
+            width: 38px;
+            height: 38px;
+            border-radius: 14px;
+            display: grid;
+            place-items: center;
+            background: ${NAVY};
+            color: ${YELLOW};
+            font-size: 13px;
+            font-weight: 950;
+          }
+
+          .status {
+            justify-self: end;
+            border-radius: 999px;
+            padding: 6px 9px;
+            background: #fff5cc;
+            color: #7a5f00;
+            font-size: 10px;
+            line-height: 1;
+            font-weight: 950;
+          }
+
+          .status.good {
+            background: #dcfce7;
+            color: #047857;
+          }
+
+          .coverageCard {
+            display: flex;
+            flex-direction: column;
+          }
+
+          .coverageBody {
+            padding: 16px;
+            display: grid;
+            gap: 14px;
+          }
+
+          .coverageRing {
+            width: 104px;
+            height: 104px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            justify-self: center;
+            background: conic-gradient(${YELLOW} 0 274deg, #e8eef7 0);
+            color: ${NAVY};
+            font-size: 34px;
+            font-weight: 950;
+            box-shadow: inset 0 0 0 12px #fff, 0 12px 30px rgba(15,23,42,.08);
+          }
+
+          .missList {
+            display: grid;
+            gap: 10px;
+          }
+
           @media (max-width: 1100px) {
             .launchArea {
+              grid-template-columns: 1fr;
+            }
+
+            .mockOutput,
+            .mockOutput.score,
+            .mockOutput.prompt-fit,
+            .scoreDashboard {
               grid-template-columns: 1fr;
             }
           }
@@ -2444,6 +3791,42 @@ export default function EssayLabPage() {
 
             .outputGrid {
               grid-template-columns: 1fr;
+            }
+
+            .admissionsHero {
+              align-items: flex-start;
+              flex-direction: column;
+            }
+
+            .admissionsGrid {
+              grid-template-columns: 1fr;
+            }
+
+            .mockInsightGrid,
+            .compareBody {
+              grid-template-columns: 1fr;
+            }
+
+            .draftSide {
+              border-right: 0;
+              border-bottom: 1px solid #e2e8f0;
+            }
+
+            .claimRow {
+              grid-template-columns: 1fr;
+              align-items: stretch;
+            }
+
+            .mockScoreRow,
+            .endingScore,
+            .rubricGrid,
+            .promptLine {
+              grid-template-columns: 1fr;
+            }
+
+            .promptLine span,
+            .status {
+              justify-self: start;
             }
           }
         `}</style>

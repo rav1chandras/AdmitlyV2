@@ -1,0 +1,1782 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Essay Lab Tool Builders Mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #06245B;
+      --yellow: #FFE500;
+      --ink: #102033;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --soft: #f8fafc;
+      --good: #16a34a;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 92% 4%, rgba(255,229,0,.18), transparent 24%),
+        linear-gradient(180deg, #f7faff 0%, #f4f7fb 100%);
+      color: var(--ink);
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 34px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .limit {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.92);
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+      box-shadow: 0 10px 28px rgba(15,23,42,.05);
+    }
+
+    .limit b {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: var(--yellow);
+    }
+
+    .lab {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 22px 60px rgba(15, 23, 42, .08);
+      overflow: hidden;
+    }
+
+    .tools-level {
+      padding: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tools-shell {
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.96), rgba(248,251,255,.96)),
+        radial-gradient(circle at 92% 12%, rgba(255,229,0,.22), transparent 25%);
+      border: 1px solid #dfe7f2;
+      padding: 15px;
+    }
+
+    .tools-shell::before {
+      content: "";
+      position: absolute;
+      inset: auto auto -56px -36px;
+      width: 180px;
+      height: 180px;
+      border: 24px solid rgba(6,36,91,.05);
+      border-radius: 50%;
+    }
+
+    .tools {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 3px 0 8px;
+      scrollbar-width: thin;
+    }
+
+    .tool {
+      position: relative;
+      overflow: hidden;
+      flex: 0 0 184px;
+      min-height: 142px;
+      border: 1px solid rgba(6,36,91,.12);
+      border-radius: 20px;
+      background: var(--tile-bg, #fff);
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      text-align: left;
+      transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+
+    .tool.dark {
+      flex-basis: 176px;
+      background: var(--navy);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .tool.yellow {
+      background: var(--yellow);
+      border-color: rgba(6,36,91,.13);
+    }
+
+    .tool.studio {
+      flex-basis: 276px;
+      background: linear-gradient(135deg, #06245B 0%, #0b347d 58%, #102f66 100%);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 18px 42px rgba(6,36,91,.18);
+    }
+
+    .tool::after {
+      content: "";
+      position: absolute;
+      right: -22px;
+      bottom: -22px;
+      width: 82px;
+      height: 82px;
+      border-radius: 28px;
+      background: var(--shape, rgba(6,36,91,.06));
+      transform: rotate(12deg);
+      opacity: .95;
+    }
+
+    .tool::before {
+      content: "";
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--dot, rgba(255,255,255,.55));
+      opacity: .6;
+    }
+
+    .tool.active {
+      border-color: var(--navy);
+      box-shadow: 0 18px 42px rgba(6,36,91,.16), 0 0 0 4px rgba(6,36,91,.05);
+      transform: translateY(-2px);
+    }
+
+    .tool-top,
+    .tool-body,
+    .tool-foot,
+    .tile-art,
+    .bg-graphic {
+      position: relative;
+      z-index: 1;
+    }
+
+    .tool-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 11px;
+      background: rgba(255,255,255,.68);
+      color: var(--navy);
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(6,36,91,.08);
+      box-shadow: 0 8px 20px rgba(15,23,42,.06);
+    }
+
+    .icon svg { width: 17px; height: 17px; }
+    .tool.dark .icon, .tool.studio .icon { background: rgba(255,255,255,.13); color: #fff; }
+
+    .tool h3 {
+      margin: 10px 0 4px;
+      color: var(--navy);
+      font-size: 14px;
+      line-height: 1.15;
+      font-weight: 900;
+    }
+
+    .tool p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.3;
+      font-weight: 700;
+    }
+
+    .tool.dark h3,
+    .tool.dark p,
+    .tool.dark .tool-foot,
+    .tool.studio h3,
+    .tool.studio p,
+    .tool.studio .tool-foot { color: #fff; }
+
+    .tool.dark p,
+    .tool.dark .tool-foot,
+    .tool.studio p,
+    .tool.studio .tool-foot { opacity: .78; }
+
+    .tool.yellow h3,
+    .tool.yellow p,
+    .tool.yellow .tool-foot { color: var(--navy); }
+
+    .tool-foot {
+      color: #8491a3;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .tile-art {
+      margin-top: auto;
+      padding-top: 9px;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      min-height: 35px;
+    }
+
+    .bubble {
+      border-radius: 12px;
+      background: rgba(255,255,255,.78);
+      border: 1px solid rgba(6,36,91,.08);
+      padding: 5px 7px;
+      color: var(--navy);
+      font-size: 9px;
+      line-height: 1.25;
+      font-weight: 900;
+      box-shadow: 0 8px 20px rgba(15,23,42,.07);
+    }
+
+    .node-chart {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-left: 2px;
+    }
+
+    .node {
+      position: relative;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--yellow);
+      box-shadow: 0 0 0 4px rgba(255,229,0,.18);
+    }
+
+    .node::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 9px;
+      width: 13px;
+      height: 2px;
+      border-radius: 999px;
+      background: rgba(255,229,0,.45);
+    }
+
+    .node:last-child::after { display: none; }
+
+    .bg-graphic {
+      position: absolute;
+      right: -18px;
+      bottom: -19px;
+      width: 82px;
+      height: 82px;
+      color: var(--shape, rgba(6,36,91,.07));
+      opacity: .75;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .tool.dark .bg-graphic { color: rgba(255,255,255,.10); opacity: 1; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 16px;
+      padding: 20px;
+      background:
+        linear-gradient(135deg, rgba(248,251,255,.92), rgba(255,255,255,.96)),
+        radial-gradient(circle at 88% 18%, rgba(255,229,0,.16), transparent 26%);
+    }
+
+    .left-pane,
+    .tool-panel {
+      border: 1px solid #d8e4f5;
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 12px 34px rgba(15,23,42,.052);
+      overflow: hidden;
+    }
+
+    .left-pane {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .mode-pill {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      gap: 8px;
+      padding: 8px 11px;
+      border-radius: 999px;
+      background: rgba(255,229,0,.28);
+      color: var(--navy);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .left-pane h2 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 23px;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .left-pane p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+      font-weight: 700;
+    }
+
+    .selector {
+      display: grid;
+      gap: 8px;
+    }
+
+    .selector button {
+      border: 1px solid #dbe7f6;
+      border-radius: 15px;
+      background: #f8fbff;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--navy);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .selector button.active {
+      background: var(--navy);
+      color: #fff;
+      border-color: var(--navy);
+    }
+
+    .tool-panel {
+      min-height: 560px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .panel-head {
+      padding: 20px 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 24px;
+      line-height: 1.1;
+    }
+
+    .panel-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .run {
+      border: 0;
+      border-radius: 15px;
+      padding: 13px 16px;
+      background: var(--yellow);
+      color: var(--navy);
+      font: inherit;
+      font-weight: 950;
+      box-shadow: 0 12px 24px rgba(255,229,0,.22);
+      white-space: nowrap;
+    }
+
+    .panel-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, .92fr);
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .input-card,
+    .result-card,
+    .outline-card {
+      border: 1px solid #dfe8f6;
+      border-radius: 18px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(15,23,42,.045);
+    }
+
+    .input-card h3,
+    .result-card h3,
+    .outline-card h3 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 13px;
+      letter-spacing: .22px;
+      text-transform: uppercase;
+    }
+
+    .card-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .tag {
+      border-radius: 999px;
+      padding: 6px 9px;
+      background: #edf4ff;
+      color: var(--navy);
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .essay-box {
+      min-height: 395px;
+      padding: 16px;
+      color: #334155;
+      font-size: 14px;
+      line-height: 1.72;
+      font-weight: 650;
+      background:
+        linear-gradient(#fff, #fff) padding-box,
+        repeating-linear-gradient(180deg, transparent 0 27px, rgba(226,232,240,.75) 28px 29px);
+    }
+
+    .highlight {
+      background: linear-gradient(180deg, transparent 48%, rgba(255,229,0,.42) 49%);
+      color: var(--navy);
+      font-weight: 850;
+    }
+
+    .result-body {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .score-ring {
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(var(--yellow) 0 282deg, #e8eef7 0);
+      color: var(--navy);
+      font-size: 28px;
+      font-weight: 950;
+      box-shadow: inset 0 0 0 10px rgba(255,255,255,.75), 0 10px 24px rgba(15,23,42,.08);
+    }
+
+    .meter-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .meter {
+      display: grid;
+      gap: 5px;
+      color: var(--navy);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .meter span {
+      height: 8px;
+      border-radius: 999px;
+      background: #edf4ff;
+      overflow: hidden;
+    }
+
+    .meter i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--navy);
+    }
+
+    .insight-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .insight {
+      border: 1px solid #dfe8f6;
+      border-radius: 15px;
+      padding: 12px;
+      background: #f8fbff;
+    }
+
+    .insight b {
+      display: block;
+      color: var(--navy);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .insight p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 700;
+    }
+
+    .outline-stack {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .outline-step {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 12px;
+      padding: 13px;
+      border: 1px solid #dfe8f6;
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 8px 18px rgba(15,23,42,.04);
+    }
+
+    .outline-step span {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: var(--navy);
+      color: var(--yellow);
+      font-weight: 950;
+    }
+
+    .outline-step h4 {
+      margin: 0 0 4px;
+      color: var(--navy);
+      font-size: 14px;
+    }
+
+    .outline-step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .aside-notes {
+      display: grid;
+      gap: 10px;
+    }
+
+    .note {
+      border: 1px solid #dfe8f6;
+      border-radius: 16px;
+      padding: 13px;
+      background: linear-gradient(135deg, #fff, #f8fbff);
+    }
+
+    .note strong {
+      display: block;
+      color: var(--navy);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .compare-card {
+      border: 1px solid #dfe8f6;
+      border-radius: 18px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(15,23,42,.045);
+    }
+
+    .compare-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      min-height: 395px;
+    }
+
+    .draft-side,
+    .fixed-side {
+      padding: 16px;
+      font-size: 14px;
+      line-height: 1.72;
+      font-weight: 650;
+    }
+
+    .draft-side {
+      color: #64748b;
+      background: #fbfdff;
+      border-right: 1px solid var(--line);
+    }
+
+    .fixed-side {
+      color: #26364d;
+      background:
+        radial-gradient(circle at 94% 8%, rgba(255,229,0,.18), transparent 28%),
+        #fff;
+    }
+
+    .edit-mark {
+      border-radius: 8px;
+      padding: 1px 4px;
+      background: rgba(255,229,0,.45);
+      color: var(--navy);
+      font-weight: 900;
+    }
+
+    .fix-list {
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .fix-item {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid #dfe8f6;
+      border-radius: 15px;
+      background: #f8fbff;
+    }
+
+    .fix-item span {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: var(--navy);
+      color: var(--yellow);
+      font-weight: 950;
+      font-size: 13px;
+    }
+
+    .fix-item b {
+      display: block;
+      color: var(--navy);
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .fix-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 700;
+    }
+
+    .evidence-map {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .claim-row {
+      display: grid;
+      grid-template-columns: 92px 1fr 96px;
+      gap: 12px;
+      align-items: center;
+      padding: 13px;
+      border: 1px solid #dfe8f6;
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    .claim-row strong {
+      color: var(--navy);
+      font-size: 12px;
+    }
+
+    .claim-row p {
+      margin: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 700;
+    }
+
+    .strength {
+      height: 10px;
+      border-radius: 999px;
+      background: #edf4ff;
+      overflow: hidden;
+    }
+
+    .strength i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--navy);
+    }
+
+    .source-card {
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .source-chip {
+      border: 1px solid #dfe8f6;
+      border-radius: 15px;
+      padding: 12px;
+      background: linear-gradient(135deg, #fff, #f8fbff);
+    }
+
+    .source-chip b {
+      display: block;
+      color: var(--navy);
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .source-chip p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 700;
+    }
+
+    .ending-preview {
+      padding: 16px;
+      display: grid;
+      gap: 13px;
+    }
+
+    .ending-card {
+      border: 1px solid #dfe8f6;
+      border-radius: 17px;
+      padding: 15px;
+      background: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ending-card::after {
+      content: "";
+      position: absolute;
+      right: -36px;
+      bottom: -42px;
+      width: 120px;
+      height: 120px;
+      border-radius: 34px;
+      background: rgba(255,229,0,.22);
+      transform: rotate(14deg);
+    }
+
+    .ending-card h4,
+    .ending-card p,
+    .ending-card .tag {
+      position: relative;
+      z-index: 1;
+    }
+
+    .ending-card h4 {
+      margin: 0 0 8px;
+      color: var(--navy);
+      font-size: 14px;
+    }
+
+    .ending-card p {
+      margin: 0;
+      color: #334155;
+      font-size: 14px;
+      line-height: 1.62;
+      font-weight: 650;
+    }
+
+    .ending-score {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .ending-score div {
+      border: 1px solid #dfe8f6;
+      border-radius: 15px;
+      padding: 12px;
+      background: #f8fbff;
+    }
+
+    .ending-score b {
+      display: block;
+      color: var(--navy);
+      font-size: 22px;
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+
+    .ending-score span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .pro-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 9px;
+      background: var(--yellow);
+      color: var(--navy);
+      font-size: 10px;
+      font-weight: 950;
+    }
+
+    .premium-panel .panel-head {
+      background:
+        linear-gradient(135deg, rgba(6,36,91,.98), rgba(11,52,125,.98)),
+        radial-gradient(circle at 92% 18%, rgba(255,229,0,.24), transparent 26%);
+      color: #fff;
+      border-bottom: 0;
+    }
+
+    .premium-panel .panel-head h2,
+    .premium-panel .panel-head p {
+      color: #fff;
+    }
+
+    .premium-panel .run {
+      background: var(--yellow);
+      color: var(--navy);
+    }
+
+    .score-dashboard {
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .overall-score {
+      border-radius: 22px;
+      background: var(--navy);
+      color: #fff;
+      padding: 18px;
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .overall-score::after {
+      content: "";
+      position: absolute;
+      right: -42px;
+      bottom: -48px;
+      width: 150px;
+      height: 150px;
+      border-radius: 40px;
+      background: rgba(255,229,0,.16);
+      transform: rotate(14deg);
+    }
+
+    .overall-score small,
+    .overall-score h3,
+    .overall-score p,
+    .overall-score .big-score {
+      position: relative;
+      z-index: 1;
+    }
+
+    .overall-score small {
+      color: rgba(255,255,255,.72);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .28px;
+    }
+
+    .big-score {
+      color: var(--yellow);
+      font-size: 72px;
+      line-height: .95;
+      font-weight: 950;
+    }
+
+    .overall-score h3 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.18;
+    }
+
+    .overall-score p {
+      margin: 6px 0 0;
+      color: rgba(255,255,255,.72);
+      font-size: 12px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .rubric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .rubric-card {
+      border: 1px solid #dfe8f6;
+      border-radius: 17px;
+      padding: 14px;
+      background: #fff;
+      box-shadow: 0 8px 18px rgba(15,23,42,.04);
+    }
+
+    .rubric-card header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .rubric-card h4 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 13px;
+    }
+
+    .rubric-card b {
+      color: var(--navy);
+      font-size: 18px;
+    }
+
+    .rubric-card p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 700;
+    }
+
+    .rubric-bar {
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #edf4ff;
+    }
+
+    .rubric-bar i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--navy);
+    }
+
+    .annotation-board {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .annotation {
+      border: 1px solid #dfe8f6;
+      border-radius: 16px;
+      padding: 13px;
+      background: linear-gradient(135deg, #fff, #f8fbff);
+    }
+
+    .annotation strong {
+      display: block;
+      color: var(--navy);
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .annotation p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.44;
+      font-weight: 700;
+    }
+
+    .prompt-fit-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr);
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .prompt-card,
+    .coverage-card {
+      border: 1px solid #dfe8f6;
+      border-radius: 18px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(15,23,42,.045);
+    }
+
+    .prompt-body {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .prompt-line {
+      display: grid;
+      grid-template-columns: 30px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid #dfe8f6;
+      border-radius: 15px;
+      background: #f8fbff;
+    }
+
+    .prompt-line span {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: var(--navy);
+      color: var(--yellow);
+      font-weight: 950;
+      font-size: 12px;
+    }
+
+    .prompt-line p {
+      margin: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 750;
+    }
+
+    .status {
+      border-radius: 999px;
+      padding: 6px 8px;
+      font-size: 10px;
+      font-weight: 950;
+      color: var(--navy);
+      background: rgba(255,229,0,.48);
+      white-space: nowrap;
+    }
+
+    .status.good {
+      color: #047857;
+      background: rgba(22,163,74,.13);
+    }
+
+    .coverage-body {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .coverage-ring {
+      width: 118px;
+      height: 118px;
+      border-radius: 50%;
+      margin: 0 auto;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(var(--yellow) 0 275deg, #e8eef7 0);
+      box-shadow: inset 0 0 0 14px rgba(255,255,255,.78), 0 12px 28px rgba(15,23,42,.08);
+      color: var(--navy);
+      font-size: 32px;
+      font-weight: 950;
+    }
+
+    .miss-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .miss-item {
+      border: 1px solid #dfe8f6;
+      border-radius: 15px;
+      padding: 12px;
+      background: linear-gradient(135deg, #fff, #f8fbff);
+    }
+
+    .miss-item b {
+      display: block;
+      color: var(--navy);
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .miss-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 700;
+    }
+
+    @media (max-width: 980px) {
+      .workspace,
+      .panel-body,
+      .compare-body,
+      .score-dashboard,
+      .prompt-fit-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .rubric-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tool-panel {
+        grid-column: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div>
+        <h1>Essay Lab</h1>
+        <p class="sub">Mockup for Thesis Checker and Outline Builder workflows.</p>
+      </div>
+      <div class="limit"><b>3</b> free checks left today</div>
+    </header>
+
+    <section class="lab">
+      <section class="tools-level">
+        <div class="tools-shell">
+          <div class="tools">
+            <article class="tool yellow active" style="--shape:rgba(6,36,91,.09);--dot:rgba(255,255,255,.72)">
+              <svg class="bg-graphic" viewBox="0 0 100 100" fill="currentColor"><polygon points="50,0 100,100 0,100"/></svg>
+              <div class="tool-top">
+                <div class="icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.2-5.2m0 0A7.5 7.5 0 1 0 5.2 5.2a7.5 7.5 0 0 0 10.6 10.6Z"/></svg>
+                </div>
+              </div>
+              <div class="tool-body">
+                <h3>Thesis Checker</h3>
+                <p>Check clarity, focus, and argument strength.</p>
+                <div class="tile-art"><div class="bubble">Clear?</div></div>
+              </div>
+              <div class="tool-foot">Fast check</div>
+            </article>
+
+            <article class="tool dark" style="--shape:rgba(255,229,0,.16);--dot:rgba(255,255,255,.18)">
+              <svg class="bg-graphic" viewBox="0 0 100 100" fill="currentColor"><rect x="10" y="10" width="80" height="80" rx="20"/></svg>
+              <div class="tool-top">
+                <div class="icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6.75h16M4 12h16M4 17.25h16"/></svg>
+                </div>
+              </div>
+              <div class="tool-body">
+                <h3>Outline Builder</h3>
+                <p>Turn a prompt into a simple essay plan.</p>
+                <div class="tile-art">
+                  <div class="node-chart"><div class="node"></div><div class="node"></div><div class="node"></div></div>
+                </div>
+              </div>
+              <div class="tool-foot">Start draft</div>
+            </article>
+
+            <article class="tool" style="--tile-bg:#fff;--shape:#fff7cc;--dot:#edf4ff">
+              <svg class="bg-graphic" viewBox="0 0 100 100" fill="currentColor"><path d="M50 0 100 50 50 100 0 50Z"/></svg>
+              <div class="tool-top">
+                <div class="icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.8 15.9 9 18.75l-.8-2.85a4.5 4.5 0 0 0-3.1-3.08L2.25 12l2.85-.82a4.5 4.5 0 0 0 3.1-3.08L9 5.25l.8 2.85a4.5 4.5 0 0 0 3.1 3.08l2.85.82-2.85.82a4.5 4.5 0 0 0-3.1 3.08ZM18 9.75l-.26-1.04a3.38 3.38 0 0 0-2.45-2.45L14.25 6l1.04-.26a3.38 3.38 0 0 0 2.45-2.45L18 2.25l.26 1.04a3.38 3.38 0 0 0 2.45 2.45L21.75 6l-1.04.26a3.38 3.38 0 0 0-2.45 2.45Z"/></svg>
+                </div>
+              </div>
+              <div class="tool-body">
+                <h3>Paragraph Fixer</h3>
+                <p>Improve clarity, grammar, and flow.</p>
+                <div class="tile-art"><div class="bubble">Polished</div></div>
+              </div>
+              <div class="tool-foot">Quick polish</div>
+            </article>
+
+            <article class="tool" style="--tile-bg:#f8fbff;--shape:#edf4ff;--dot:#FFE500">
+              <svg class="bg-graphic" viewBox="0 0 100 100" fill="currentColor"><circle cx="50" cy="50" r="42"/></svg>
+              <div class="tool-top">
+                <div class="icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.63a2.25 2.25 0 0 0-1.32-2.05l-4.5-2.04a2.25 2.25 0 0 0-1.86 0l-4.5 2.04A2.25 2.25 0 0 0 6 11.62v2.63m13.5 0a7.5 7.5 0 0 1-15 0m15 0H4.5"/></svg>
+                </div>
+              </div>
+              <div class="tool-body">
+                <h3>Evidence Checker</h3>
+                <p>Find claims that need stronger support.</p>
+                <div class="tile-art"><div class="bubble">Proof gap</div></div>
+              </div>
+              <div class="tool-foot">Rubric help</div>
+            </article>
+
+            <article class="tool yellow" style="--shape:rgba(6,36,91,.08);--dot:rgba(255,255,255,.72)">
+              <svg class="bg-graphic" viewBox="0 0 100 100" fill="currentColor"><rect x="12" y="12" width="76" height="76" rx="18"/></svg>
+              <div class="tool-top">
+                <div class="icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15M4.5 12h15M4.5 17.25H12"/></svg>
+                </div>
+              </div>
+              <div class="tool-body">
+                <h3>Conclusion Checker</h3>
+                <p>Make sure your ending lands cleanly.</p>
+                <div class="tile-art"><div class="bubble">Last line</div></div>
+              </div>
+              <div class="tool-foot">Final pass</div>
+            </article>
+
+            <article class="tool dark" style="--shape:rgba(255,229,0,.15);--dot:rgba(255,255,255,.16)">
+              <svg class="bg-graphic" viewBox="0 0 100 100" fill="currentColor"><path d="M50 0 100 50 50 100 0 50Z"/></svg>
+              <div class="tool-top">
+                <div class="icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6 6 0 0 0 1.5-.19m-1.5.19a6 6 0 0 1-1.5-.19m3.75 7.48a12 12 0 0 1-4.5 0M14.25 18v-.2c0-.98.66-1.82 1.51-2.31a7.5 7.5 0 1 0-7.52 0c.85.49 1.51 1.33 1.51 2.31v.2"/></svg>
+                </div>
+                <span class="pro-badge">PRO</span>
+              </div>
+              <div class="tool-body">
+                <h3>Full Essay Score</h3>
+                <p>Detailed rubric score with comments.</p>
+                <div class="tile-art"><div class="bubble">Rubric</div></div>
+              </div>
+              <div class="tool-foot">Advanced review</div>
+            </article>
+
+            <article class="tool" style="--tile-bg:#fff;--shape:#fff7cc;--dot:#edf4ff">
+              <svg class="bg-graphic" viewBox="0 0 100 100" fill="currentColor"><polygon points="50,0 100,100 0,100"/></svg>
+              <div class="tool-top">
+                <div class="icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                </div>
+                <span class="pro-badge">PRO</span>
+              </div>
+              <div class="tool-body">
+                <h3>Prompt Fit</h3>
+                <p>Check whether your draft answers the prompt.</p>
+                <div class="tile-art"><div class="bubble">Missing ask?</div></div>
+              </div>
+              <div class="tool-foot">High-stakes</div>
+            </article>
+
+            <article class="tool studio" style="--shape:rgba(255,229,0,.16);--dot:rgba(255,255,255,.18)">
+              <svg class="bg-graphic" viewBox="0 0 100 100" fill="currentColor"><rect x="9" y="9" width="82" height="82" rx="24"/></svg>
+              <div class="tool-top">
+                <div class="icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h8M16 17h4M14 5v4M7 10v4M12 15v4"/></svg>
+                </div>
+              </div>
+              <div class="tool-body">
+                <h3>Essay Studio</h3>
+                <p>Premium drafting workspace after tool checks.</p>
+                <div class="tile-art"><div class="bubble">Upgrade flow</div></div>
+              </div>
+              <div class="tool-foot">Premium workspace</div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <aside class="left-pane">
+          <span class="mode-pill">Tool Builder Mockup</span>
+          <h2>Free checks that lead into better drafting</h2>
+          <p>Students can paste a prompt or draft, get one focused result, then continue into Essay Studio when they want deeper help.</p>
+          <div class="selector">
+            <button class="active">Thesis Checker <span>Free</span></button>
+            <button>Outline Builder <span>Free</span></button>
+            <button>Paragraph Fixer <span>Free</span></button>
+            <button>Evidence Checker <span>Free</span></button>
+            <button>Conclusion Checker <span>Free</span></button>
+            <button>Full Essay Score <span>Pro</span></button>
+            <button>Prompt Fit <span>Pro</span></button>
+            <button>Essay Studio <span>Pro</span></button>
+          </div>
+        </aside>
+
+        <section class="tool-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Thesis Checker</h2>
+              <p>Find whether the draft has a clear, specific, arguable central idea.</p>
+            </div>
+            <button class="run">Check Thesis</button>
+          </div>
+
+          <div class="panel-body">
+            <article class="input-card">
+              <div class="card-head">
+                <h3>Student Draft</h3>
+                <span class="tag">Essay intro</span>
+              </div>
+              <div class="essay-box">
+                Technology has changed education in many ways. <span class="highlight">The best schools should use technology because it helps students learn better.</span> For example, students can watch videos, use online practice tools, and get feedback faster than before. Some people think technology makes students distracted, but I think it can be very useful when teachers use it correctly.
+              </div>
+            </article>
+
+            <article class="result-card">
+              <div class="card-head">
+                <h3>Thesis Result</h3>
+                <span class="tag">Needs focus</span>
+              </div>
+              <div class="result-body">
+                <div class="score-row">
+                  <div class="score-ring">72</div>
+                  <div class="meter-list">
+                    <div class="meter">Clarity <span><i style="width:82%"></i></span></div>
+                    <div class="meter">Specificity <span><i style="width:54%"></i></span></div>
+                    <div class="meter">Arguable claim <span><i style="width:46%"></i></span></div>
+                  </div>
+                </div>
+
+                <div class="insight-grid">
+                  <div class="insight">
+                    <b>What works</b>
+                    <p>The thesis is easy to understand and names the broad topic.</p>
+                  </div>
+                  <div class="insight">
+                    <b>What is missing</b>
+                    <p>It needs a sharper reason and a more debatable position.</p>
+                  </div>
+                  <div class="insight">
+                    <b>Try this</b>
+                    <p>“Schools should use technology when it gives students faster feedback and more personalized practice.”</p>
+                  </div>
+                  <div class="insight">
+                    <b>Next step</b>
+                    <p>Build body paragraphs around feedback speed and personalization.</p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="tool-panel" style="grid-column: 2;">
+          <div class="panel-head">
+            <div>
+              <h2>Outline Builder</h2>
+              <p>Convert a prompt and thesis into a paragraph-by-paragraph essay plan.</p>
+            </div>
+            <button class="run">Build Outline</button>
+          </div>
+
+          <div class="panel-body">
+            <article class="outline-card">
+              <div class="card-head">
+                <h3>Generated Outline</h3>
+                <span class="tag">5 paragraphs</span>
+              </div>
+              <div class="outline-stack">
+                <div class="outline-step">
+                  <span>1</span>
+                  <div><h4>Hook + context</h4><p>Open with a classroom moment where technology either helps or distracts, then introduce the debate.</p></div>
+                </div>
+                <div class="outline-step">
+                  <span>2</span>
+                  <div><h4>Reason one: fast feedback</h4><p>Explain how practice tools show students what they missed while the lesson is still fresh.</p></div>
+                </div>
+                <div class="outline-step">
+                  <span>3</span>
+                  <div><h4>Reason two: personalized practice</h4><p>Show how students can work at different levels without waiting for the whole class.</p></div>
+                </div>
+                <div class="outline-step">
+                  <span>4</span>
+                  <div><h4>Counterargument</h4><p>Acknowledge distraction risk, then explain why teacher structure matters more than the device itself.</p></div>
+                </div>
+                <div class="outline-step">
+                  <span>5</span>
+                  <div><h4>Conclusion</h4><p>Return to the classroom moment and make the final point about purposeful use.</p></div>
+                </div>
+              </div>
+            </article>
+
+            <aside class="aside-notes">
+              <div class="note">
+                <strong>Essay shape</strong>
+                <p>Argument essay with two reasons and one counterargument.</p>
+              </div>
+              <div class="note">
+                <strong>Evidence to add</strong>
+                <p>Use one classroom example, one learning app example, and one teacher-guided rule.</p>
+              </div>
+              <div class="note">
+                <strong>Upgrade moment</strong>
+                <p>Send this outline into Essay Studio to draft in the student’s voice.</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="tool-panel" style="grid-column: 2;">
+          <div class="panel-head">
+            <div>
+              <h2>Paragraph Fixer</h2>
+              <p>Polish one paragraph without changing the student’s meaning or voice.</p>
+            </div>
+            <button class="run">Fix Paragraph</button>
+          </div>
+
+          <div class="panel-body">
+            <article class="compare-card">
+              <div class="card-head">
+                <h3>Before / After</h3>
+                <span class="tag">Voice preserved</span>
+              </div>
+              <div class="compare-body">
+                <div class="draft-side">
+                  I was nervous about joining the debate team because I did not know anyone and I was scared to talk in front of people. My first tournament was bad and I forgot some of my points. But after that I practiced more and became more confident.
+                </div>
+                <div class="fixed-side">
+                  I joined the debate team feeling like the quietest person in the room. At my first tournament, I lost my place halfway through my argument and rushed through the rest. <span class="edit-mark">That mistake became useful</span>: it showed me exactly what I needed to practice, and each round after that made speaking feel less impossible.
+                </div>
+              </div>
+            </article>
+
+            <aside class="fix-list">
+              <div class="fix-item">
+                <span>1</span>
+                <div><b>Sharper opening</b><p>Starts with a scene instead of a broad summary.</p></div>
+              </div>
+              <div class="fix-item">
+                <span>2</span>
+                <div><b>More specific moment</b><p>Names the exact tournament problem so the growth feels earned.</p></div>
+              </div>
+              <div class="fix-item">
+                <span>3</span>
+                <div><b>Cleaner reflection</b><p>Connects the setback to practice and confidence without sounding generic.</p></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="tool-panel" style="grid-column: 2;">
+          <div class="panel-head">
+            <div>
+              <h2>Evidence Checker</h2>
+              <p>Spot unsupported claims and suggest concrete proof students can add.</p>
+            </div>
+            <button class="run">Check Evidence</button>
+          </div>
+
+          <div class="panel-body">
+            <article class="outline-card">
+              <div class="card-head">
+                <h3>Claim Map</h3>
+                <span class="tag">3 gaps found</span>
+              </div>
+              <div class="evidence-map">
+                <div class="claim-row">
+                  <strong>Claim 1</strong>
+                  <p>“Technology helps students learn better.” Needs a classroom example or measurable outcome.</p>
+                  <div class="strength"><i style="width:42%"></i></div>
+                </div>
+                <div class="claim-row">
+                  <strong>Claim 2</strong>
+                  <p>“Feedback is faster online.” Good claim, but add a specific tool or assignment moment.</p>
+                  <div class="strength"><i style="width:64%"></i></div>
+                </div>
+                <div class="claim-row">
+                  <strong>Claim 3</strong>
+                  <p>“Teachers can prevent distraction.” Needs a practical rule or structure to feel believable.</p>
+                  <div class="strength"><i style="width:36%"></i></div>
+                </div>
+                <div class="claim-row">
+                  <strong>Claim 4</strong>
+                  <p>“Students work at their own pace.” Strongest point. Keep and support with one student scenario.</p>
+                  <div class="strength"><i style="width:82%"></i></div>
+                </div>
+              </div>
+            </article>
+
+            <aside class="source-card">
+              <div class="source-chip">
+                <b>Add a specific example</b>
+                <p>Describe a student seeing missed questions immediately after practice.</p>
+              </div>
+              <div class="source-chip">
+                <b>Add a contrast</b>
+                <p>Compare waiting for graded homework with instant practice feedback.</p>
+              </div>
+              <div class="source-chip">
+                <b>Add teacher structure</b>
+                <p>Name one rule: device face-down during explanation, then online practice after.</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="tool-panel" style="grid-column: 2;">
+          <div class="panel-head">
+            <div>
+              <h2>Conclusion Checker</h2>
+              <p>Test whether the ending feels complete, reflective, and memorable.</p>
+            </div>
+            <button class="run">Check Ending</button>
+          </div>
+
+          <div class="panel-body">
+            <article class="outline-card">
+              <div class="card-head">
+                <h3>Ending Preview</h3>
+                <span class="tag">Almost there</span>
+              </div>
+              <div class="ending-preview">
+                <div class="ending-card">
+                  <span class="tag">Current ending</span>
+                  <h4>Feels clear, but a little flat</h4>
+                  <p>Technology is a helpful part of school when teachers use it correctly. It can help students learn more and be successful in the future.</p>
+                </div>
+                <div class="ending-card">
+                  <span class="tag">Stronger version</span>
+                  <h4>Returns to the real classroom</h4>
+                  <p>The goal is not to replace the teacher with a screen. The goal is to give students one more way to see what they missed, try again, and walk into the next lesson more prepared.</p>
+                </div>
+              </div>
+            </article>
+
+            <aside class="aside-notes">
+              <div class="ending-score">
+                <div><b>84</b><span>Closure</span></div>
+                <div><b>71</b><span>Reflection</span></div>
+                <div><b>67</b><span>Memory</span></div>
+              </div>
+              <div class="note">
+                <strong>What works</strong>
+                <p>The ending restates the position clearly and does not introduce a new argument.</p>
+              </div>
+              <div class="note">
+                <strong>What to improve</strong>
+                <p>End with a concrete image or insight instead of a broad phrase like “successful in the future.”</p>
+              </div>
+              <div class="note">
+                <strong>Best next step</strong>
+                <p>Bring back the strongest example from the body paragraph and show why it matters.</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="tool-panel premium-panel" style="grid-column: 2;">
+          <div class="panel-head">
+            <div>
+              <h2>Full Essay Score</h2>
+              <p>Premium rubric score across structure, voice, evidence, specificity, and readiness.</p>
+            </div>
+            <button class="run">Run Full Score</button>
+          </div>
+
+          <div class="score-dashboard">
+            <aside class="overall-score">
+              <div>
+                <small>Overall readiness</small>
+                <div class="big-score">86</div>
+              </div>
+              <div>
+                <h3>Strong draft with one evidence gap</h3>
+                <p>The essay has a believable growth arc. Stronger concrete proof would make it feel more admissions-ready.</p>
+              </div>
+            </aside>
+
+            <section class="rubric-grid">
+              <div class="rubric-card">
+                <header><h4>Specificity</h4><b>82</b></header>
+                <div class="rubric-bar"><i style="width:82%"></i></div>
+                <p>Good moments are present, but two claims need sharper scenes.</p>
+              </div>
+              <div class="rubric-card">
+                <header><h4>Structure</h4><b>90</b></header>
+                <div class="rubric-bar"><i style="width:90%"></i></div>
+                <p>Clear beginning, turn, and ending. The order is easy to follow.</p>
+              </div>
+              <div class="rubric-card">
+                <header><h4>Voice</h4><b>88</b></header>
+                <div class="rubric-bar"><i style="width:88%"></i></div>
+                <p>The tone feels personal and not over-polished.</p>
+              </div>
+              <div class="rubric-card">
+                <header><h4>Reflection</h4><b>79</b></header>
+                <div class="rubric-bar"><i style="width:79%"></i></div>
+                <p>The lesson is clear but could connect more tightly to a future action.</p>
+              </div>
+            </section>
+          </div>
+
+          <div class="panel-body">
+            <article class="outline-card">
+              <div class="card-head">
+                <h3>Inline Review Notes</h3>
+                <span class="tag">4 priority comments</span>
+              </div>
+              <div class="annotation-board">
+                <div class="annotation"><strong>Opening</strong><p>Strong setup. Add one concrete sensory detail so the reader enters the moment faster.</p></div>
+                <div class="annotation"><strong>Middle paragraph</strong><p>This is the biggest opportunity: show what changed in your behavior, not only what you realized.</p></div>
+                <div class="annotation"><strong>Evidence gap</strong><p>The claim about team trust needs a result, quote, or visible response.</p></div>
+                <div class="annotation"><strong>Ending</strong><p>Good closing idea. Make the last sentence more specific and less universal.</p></div>
+              </div>
+            </article>
+
+            <aside class="aside-notes">
+              <div class="note">
+                <strong>Top fix</strong>
+                <p>Add one later example where your improved leadership changed the team outcome.</p>
+              </div>
+              <div class="note">
+                <strong>Admission reader risk</strong>
+                <p>The draft may sound thoughtful but slightly under-evidenced unless the middle gets more concrete.</p>
+              </div>
+              <div class="note">
+                <strong>Recommended next step</strong>
+                <p>Move this draft into Essay Studio and revise the middle paragraph first.</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="tool-panel premium-panel" style="grid-column: 2;">
+          <div class="panel-head">
+            <div>
+              <h2>Prompt Fit</h2>
+              <p>Premium check for whether the essay fully answers every part of the assignment prompt.</p>
+            </div>
+            <button class="run">Check Prompt Fit</button>
+          </div>
+
+          <div class="prompt-fit-grid">
+            <article class="prompt-card">
+              <div class="card-head">
+                <h3>Prompt Requirements</h3>
+                <span class="tag">4 asks detected</span>
+              </div>
+              <div class="prompt-body">
+                <div class="prompt-line">
+                  <span>1</span>
+                  <p>Describe a challenge or setback you experienced.</p>
+                  <b class="status good">Covered</b>
+                </div>
+                <div class="prompt-line">
+                  <span>2</span>
+                  <p>Explain what you did in response.</p>
+                  <b class="status good">Covered</b>
+                </div>
+                <div class="prompt-line">
+                  <span>3</span>
+                  <p>Reflect on how the experience changed you.</p>
+                  <b class="status">Partial</b>
+                </div>
+                <div class="prompt-line">
+                  <span>4</span>
+                  <p>Connect that change to future goals or contribution.</p>
+                  <b class="status">Missing</b>
+                </div>
+              </div>
+            </article>
+
+            <aside class="coverage-card">
+              <div class="card-head">
+                <h3>Coverage Score</h3>
+                <span class="tag">Needs one addition</span>
+              </div>
+              <div class="coverage-body">
+                <div class="coverage-ring">76</div>
+                <div class="miss-list">
+                  <div class="miss-item">
+                    <b>Missing ask</b>
+                    <p>Add one sentence that shows how this growth affects what you will contribute next.</p>
+                  </div>
+                  <div class="miss-item">
+                    <b>Partial reflection</b>
+                    <p>The essay says you changed, but it should show one new behavior that proves it.</p>
+                  </div>
+                  <div class="miss-item">
+                    <b>Suggested bridge</b>
+                    <p>“Now, before I lead with my own idea, I ask what the team has already noticed.”</p>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
