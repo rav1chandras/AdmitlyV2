@@ -124,6 +124,30 @@ export function satPercentile(sat: number): number { return lookupPercentile(sat
 export function actPercentile(act: number): number { return lookupPercentile(act, ACT_PERCENTILES); }
 export function gpaPercentile(gpa: number): number { return lookupPercentile(gpa, GPA_PERCENTILES); }
 
+export function actToSat(act: number): number {
+  const table: [number, number][] = [
+    [36, 1600], [35, 1560], [34, 1500], [33, 1460], [32, 1430], [31, 1400], [30, 1360],
+    [29, 1330], [28, 1290], [27, 1250], [26, 1210], [25, 1180], [24, 1150], [23, 1110],
+    [22, 1080], [21, 1050], [20, 1020], [19, 980], [18, 940], [17, 900], [16, 870],
+    [15, 830], [14, 790], [13, 750], [12, 710], [11, 680],
+  ];
+
+  if (act <= 0) return 0;
+  if (act >= table[0][0]) return table[0][1];
+  if (act <= table[table.length - 1][0]) return table[table.length - 1][1];
+
+  for (let i = 0; i < table.length - 1; i++) {
+    const [hiAct, hiSat] = table[i];
+    const [loAct, loSat] = table[i + 1];
+    if (act >= loAct && act <= hiAct) {
+      const t = (act - loAct) / (hiAct - loAct);
+      return Math.round(loSat + t * (hiSat - loSat));
+    }
+  }
+
+  return 680;
+}
+
 // ── SAT axis score (0–99): selective-pool percentile + exponential boost above 1500 ──
 // t=0 at 1500, t=1 at 1600; exponent 0.6 (concave, gentler than old 0.35), max +8.
 // Clamped to 99 — all axis scores use the same 0–99 range as ecAxis.
@@ -222,7 +246,28 @@ function calcRigorBonus(apTaken: number, apOffered: number): number {
 //   gap ≤ 20 → 65/35 | gap ≤ 50 → 75/25 | gap > 50 → 88/12
 const ELITE_FLOOR_THRESHOLD = 91;
 
-function mergeAxes(acadAxis: number, ecAxis: number): number {
+function smoothstep(edge0: number, edge1: number, value: number): number {
+  const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+function academicDominantCap(acadAxis: number, ecAxis: number): number | null {
+  if (acadAxis < 99) {
+    const eliteProgress = smoothstep(95, 99, acadAxis);
+    if (ecAxis < 40) return 89 + eliteProgress * 8;
+    if (ecAxis < 60) return 92 + eliteProgress * 6;
+  }
+  return null;
+}
+
+function ecDominantCap(acadAxis: number, rigorBonus = 0): number | null {
+  if (acadAxis < 45) return 82 - Math.min(rigorBonus, 4);
+  if (acadAxis < 60) return 88 - Math.min(rigorBonus, 3);
+  if (acadAxis < 70) return 92 - Math.min(rigorBonus, 2);
+  return null;
+}
+
+function mergeAxes(acadAxis: number, ecAxis: number, rigorBonus = 0): number {
   const stronger = Math.max(acadAxis, ecAxis);
   const weaker   = Math.min(acadAxis, ecAxis);
   const gap      = stronger - weaker;
@@ -232,10 +277,16 @@ function mergeAxes(acadAxis: number, ecAxis: number): number {
     const maxBonus = weakAcadPenalty ? 5 : 10;
     const raw = stronger + (weaker / 99) * maxBonus;
     // Academic-dominant profiles with weak EC: cap pre-rigor merge.
-    // Bypass cap if acad is truly maxed (≥ 99 — a 4.0/1600 deserves 99).
+    // Smooth cap near the top so 1560→1570 does not jump by 10 points.
     if (acadAxis >= stronger && acadAxis < 99) {
-      if (ecAxis < 40) return Math.min(raw, 89);  // minimal EC  → +rigor up to 8 → final ~90–97
-      if (ecAxis < 60) return Math.min(raw, 92);  // moderate EC → +rigor up to 8 → final ~93–99
+      const cap = academicDominantCap(acadAxis, ecAxis);
+      if (cap !== null) return Math.min(raw, cap);
+    }
+
+    // EC-dominant profiles still need credible academics for an elite final score.
+    if (ecAxis > acadAxis) {
+      const cap = ecDominantCap(acadAxis, rigorBonus);
+      if (cap !== null) return Math.min(raw, cap);
     }
     return raw;
   }
@@ -353,7 +404,7 @@ export function calcProfileScore(input: ScoreInput): ScoreBreakdown {
   const rigorBonus = calcRigorBonus(apTaken, apOffered);
 
   // ── Merge → final score ──
-  const merged    = mergeAxes(acadAxis, ecAxis);
+  const merged    = mergeAxes(acadAxis, ecAxis, rigorBonus);
   const rawFinal  = Math.min(Math.round(merged + rigorBonus), 99);
   // D1 recruited athletes get a final-score floor of 78 (Strong Match).
   // A school that wants you on their roster is a different kind of signal than

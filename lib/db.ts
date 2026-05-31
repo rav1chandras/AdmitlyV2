@@ -174,7 +174,7 @@ export async function upsertProfile(
         data.act ?? null,
         data.ap_offered ?? 0,
         data.ap_taken ?? 0,
-        data.ec_tier ?? 6,
+        data.ec_tier ?? 4,
         data.leadership_roles ?? 0,
         data.major_multiplier ?? 1.0,
         data.is_ed ?? false,

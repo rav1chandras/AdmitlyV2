@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const profile = await getProfile(userId);
     return NextResponse.json(profile || {
       gpa: 0, sat: null, act: null, ap_offered: 0, ap_taken: 0,
-      ec_tier: 6, leadership_roles: 0, major_multiplier: 1.0,
+      ec_tier: 4, leadership_roles: 0, major_multiplier: 1.0,
       is_ed: false, is_athlete: false, is_legacy: false, final_score: 0,
     });
   } catch (error) {

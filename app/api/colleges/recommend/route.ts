@@ -9,10 +9,10 @@
  *   Outcomes       — grad rate + retention + post-grad earnings  (0–15 pts)
  *   Affordability  — net price + median debt + Pell rate         (0–15 pts)
  *   Preferences    — location + school size                      (0– 8 pts)
- *   Boosts         — in-state, ED, athlete, holistic profile     (0– 7 pts)
+ *   Boosts         — in-state, ED, athlete, activity profile     (0–12 pts)
  *
  * Probability boost pipeline (applied in order, before bucketing):
- *   base → STEM penalty → ED boost → legacy boost → AP rigor boost
+ *   base → STEM penalty → ED boost → legacy boost → AP rigor boost → activity boost
  *
  *   ED probability boost:
  *     · accept < 10%:  admitProb × 1.15 (modest — self-selecting pool)
@@ -51,8 +51,8 @@
  * v4 baseline:
  *   ✓ GPA is a co-factor in the logistic model (not just post-hoc bonus)
  *   ✓ IQR-normalized SAT z-score (school-aware scaling)
- *   ✓ Weighted GPA auto-detection & normalization (4.0+ → unweighted)
- *   ✓ Holistic profile score (final_score) as a boost signal
+ *   ✓ GPA scale-aware normalization
+ *   ✓ Activity profile signal affects fit score and probability modestly
  *   ✓ Holistic review floor — sub-40% schools never classified as safety
  *   ✓ publicFilter uses cm.ownership (not pm.control on LEFT JOIN)
  *   ✓ In-state filter uses student's actual state
@@ -75,6 +75,13 @@ import { ensureCollegesMaster } from '@/lib/seed-colleges';
 import { ensureProgramsMaster } from '@/lib/seed-programs';
 import { getCIPCodesForStudent } from '@/lib/major-cip-map';
 import { isPro } from '@/lib/subscription';
+import { actToSat } from '@/lib/utils';
+import {
+  activityProfileBoost,
+  activitySignalFromActivities,
+  applyActivityProbabilityBoost,
+  normalizeRecommendationGPA,
+} from '@/lib/recommendation-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -152,55 +159,6 @@ function parseSize(pref: string): { min: number; max: number } | null {
   if (lower.includes('medium') || lower.includes('5k-15k'))                              return { min: 5000,  max: 15000  };
   if (lower.includes('large')  || lower.includes('>15k')  || lower.includes('15k+'))     return { min: 15000, max: 999999 };
   return null;
-}
-
-/* ─────────────────────────────────────────────────────────── */
-/* ACT to SAT conversion (College Board concordance)           */
-/* ─────────────────────────────────────────────────────────── */
-
-function actToSat(act: number): number {
-  const table: [number, number][] = [
-    [36,1600],[35,1560],[34,1500],[33,1460],[32,1430],[31,1400],[30,1360],
-    [29,1330],[28,1290],[27,1250],[26,1210],[25,1180],[24,1150],[23,1110],
-    [22,1080],[21,1050],[20,1020],[19,980],[18,940],[17,900],[16,870],
-    [15,830],[14,790],[13,750],[12,710],[11,680],
-  ];
-  for (let i = 0; i < table.length - 1; i++) {
-    const [a1, s1] = table[i];
-    const [a2, s2] = table[i + 1];
-    if (act >= a2) {
-      const t = (act - a2) / (a1 - a2);
-      return Math.round(s2 + t * (s1 - s2));
-    }
-  }
-  return 680;
-}
-
-/* ─────────────────────────────────────────────────────────── */
-/* GPA scale normalization                                     */
-/*                                                             */
-/* Many students report weighted GPAs (4.0+). The scoring      */
-/* model compares against unweighted expectations, so we       */
-/* detect and normalise. Heuristic:                            */
-/*   > 4.0  → weighted → convert to approximate unweighted     */
-/*   ≤ 4.0  → assume already unweighted                        */
-/*                                                             */
-/* Conversion: maps the 3.0–5.0 weighted range to 2.5–4.0     */
-/* unweighted via linear interpolation, which approximates     */
-/* common weighting schemes (+0.5 honors, +1.0 AP).            */
-/* ─────────────────────────────────────────────────────────── */
-
-function normalizeGPA(rawGPA: number): { gpa: number; wasNormalized: boolean } {
-  if (rawGPA <= 0) return { gpa: 0, wasNormalized: false };
-
-  // Already on unweighted 4.0 scale
-  if (rawGPA <= 4.0) return { gpa: rawGPA, wasNormalized: false };
-
-  // Weighted GPA detected (4.01–5.0+)
-  // Linear map: 3.0w → 2.5uw, 4.0w → 3.5uw, 5.0w → 4.0uw
-  // Formula: uw = 0.75 * weighted + 0.25
-  const unweighted = Math.min(4.0, Math.max(2.0, rawGPA * 0.75 + 0.25));
-  return { gpa: Math.round(unweighted * 100) / 100, wasNormalized: true };
 }
 
 /* ─────────────────────────────────────────────────────────── */
@@ -517,19 +475,12 @@ function isOvermatch(studentSAT: number | null, sat75: number | null): boolean {
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Holistic profile score → small boost                        */
+/* Activity profile score → bounded boost                      */
 /*                                                             */
-/* final_score (0–100) captures ECs, essays, letters, etc.     */
-/* We use it as a tiebreaker-level signal (0–1 pt, part of     */
-/* Boosts cap) so holistic profile influences ranking without  */
-/* overwhelming the data-driven academic signal.               */
+/* Actual student_activities drive a 0–6 pt boost and a small  */
+/* probability nudge at holistic-review schools. final_score   */
+/* remains a fallback only when activities are not available.   */
 /* ─────────────────────────────────────────────────────────── */
-
-function holisticBoost(finalScore: number): { points: number; reason: string | null } {
-  if (!finalScore || finalScore <= 0) return { points: 0, reason: null };
-  if (finalScore >= 80) return { points: 1, reason: 'Strong holistic profile' };
-  return { points: 0, reason: null };
-}
 
 /* ─────────────────────────────────────────────────────────── */
 /* Route handler                                               */
@@ -552,9 +503,17 @@ export async function GET(req: Request) {
     // Seed once per cold start
     await ensureSeeded();
 
-    const [profile, settings] = await Promise.all([
+    const [profile, settings, activityResult] = await Promise.all([
       getProfile(userId),
       getSettings(userId),
+      getPool().query(
+        `SELECT id, name, category, role, hours_per_week, start_grade, end_grade,
+                is_current, description
+           FROM student_activities
+          WHERE user_id = $1
+          ORDER BY sort_order ASC, created_at ASC`,
+        [userId],
+      ).catch(() => ({ rows: [] as any[] })),
     ]);
 
     if (!profile || (!profile.gpa && !profile.sat && !profile.act)) {
@@ -569,9 +528,10 @@ export async function GET(req: Request) {
     const rawACT: number | null = profile.act ? Number(profile.act) : null;
     const studentSAT: number | null = rawSAT ?? (rawACT ? actToSat(rawACT) : null);
 
-    // GPA normalization: detect weighted (>4.0) and convert to unweighted
+    // GPA normalization: respect saved GPA scale, with weighted fallback detection.
     const rawGPA = Number(profile.gpa) || 0;
-    const { gpa: studentGPA, wasNormalized: gpaNormalized } = normalizeGPA(rawGPA);
+    const gpaScale = settings?.gpa_scale ?? '4.0';
+    const { gpa: studentGPA, wasNormalized: gpaNormalized } = normalizeRecommendationGPA(rawGPA, gpaScale);
 
     const studentScore = profile.final_score ?? 0;
     const isAthlete    = profile.is_athlete ?? false;
@@ -591,6 +551,8 @@ export async function GET(req: Request) {
     const sizePref      = settings?.preferred_size ?? '';
     const needsAid      = settings?.financial_aid_needed ?? false;
     const studentState  = settings?.high_school_state ?? '';
+    const activitySignal = activitySignalFromActivities(activityResult.rows);
+    const hasActivitySignal = activityResult.rows.length > 0;
 
     const programNames = getCIPCodesForStudent(primaryMajor, altMajor);
     const prefStates = getPreferredStates(locationPref);
@@ -710,7 +672,10 @@ export async function GET(req: Request) {
       const legacyBoosted = applyLegacyBoost(edBoosted, acceptRate, c.ownership ?? null, isLegacy);
 
       // Apply AP rigor boost (schools <35% accept)
-      const admitProb = applyAPRigorBoost(legacyBoosted, acceptRate, apTaken, apOffered);
+      const rigorBoosted = applyAPRigorBoost(legacyBoosted, acceptRate, apTaken, apOffered);
+
+      // Apply actual activity profile signal as a small holistic-review nudge
+      const admitProb = applyActivityProbabilityBoost(rigorBoosted, acceptRate, activitySignal);
 
       if (stemPen > 0) {
         const label = stemKind === 'cs' ? 'CS' : stemKind === 'engineering' ? 'Engineering' : 'STEM';
@@ -843,8 +808,8 @@ export async function GET(req: Request) {
         reasons.push({ text: 'Right school size', good: true });
       }
 
-      /* ── 7. Boosts (0–7 pts) ───────────────────────────────── */
-      // Budget: in-state (0–4) + ED (0–1) + athlete (0–1) + holistic (0–1) = 7 max
+      /* ── 7. Boosts (0–12 pts) ──────────────────────────────── */
+      // Budget: in-state (0–4) + ED (0–1) + athlete (0–1) + activity profile (0–6)
 
       // In-state tuition boost (0–4 pts)
       if (isInstate && studentState) {
@@ -880,11 +845,11 @@ export async function GET(req: Request) {
         reasons.push({ text: 'Recruited athlete', good: true });
       }
 
-      // Holistic profile boost (0–1 pt) — from final_score
-      const hBoost = holisticBoost(studentScore);
-      if (hBoost.points > 0) {
-        points += hBoost.points;
-        if (hBoost.reason) reasons.push({ text: hBoost.reason, good: true });
+      // Activity profile boost (0–6 pts) — actual activities first, final_score fallback
+      const aBoost = activityProfileBoost(activitySignal, studentScore, hasActivitySignal);
+      if (aBoost.points > 0) {
+        points += aBoost.points;
+        if (aBoost.reason) reasons.push({ text: aBoost.reason, good: true });
       }
 
       /* ── Clamp, bucket, overmatch ───────────────────────────── */
@@ -981,8 +946,11 @@ export async function GET(req: Request) {
         act:             rawACT,
         gpa_raw:         rawGPA,
         gpa_used:        studentGPA,
+        gpa_scale:       gpaScale,
         gpa_normalized:  gpaNormalized,
         final_score:     studentScore,
+        activity_count:  activityResult.rows.length,
+        activity_signal: activitySignal,
         primary_major:   primaryMajor,
         alt_major:       altMajor,
         location:        locationPref,

@@ -88,7 +88,7 @@ function normalizeProfile(raw: Record<string, unknown>): ProfileData {
     act: raw.act != null && raw.act !== '' ? n(raw.act) : null,
     ap_offered: n(raw.ap_offered),
     ap_taken: n(raw.ap_taken),
-    ec_tier: n(raw.ec_tier, 6),
+    ec_tier: n(raw.ec_tier, 4),
     leadership_roles: n(raw.leadership_roles),
     major_multiplier: n(raw.major_multiplier, 1),
     is_ed: b(raw.is_ed),

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { AppShell } from '@/components/AppShell';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { useProCheck } from '@/lib/useProCheck';
+import { actToSat } from '@/lib/utils';
 
 type Bucket = 'reach' | 'target' | 'safety';
 
@@ -62,7 +63,10 @@ interface RecInputs {
   act?: number | null;
   gpa_raw?: number | null;
   gpa_used?: number | null;
+  gpa_scale?: string | null;
   final_score?: number | null;
+  activity_count?: number | null;
+  activity_signal?: number | null;
   ap_taken?: number | null;
   ap_offered?: number | null;
   primary_major: string;
@@ -157,7 +161,7 @@ function clamp(value: number, min: number, max: number) {
 
 function actToSatApprox(act?: number | null) {
   if (!act) return null;
-  return Math.round(clamp(590 + act * 28.5, 1000, 1600));
+  return actToSat(act);
 }
 
 function academicScoreFromInputs(inputs?: RecInputs) {
