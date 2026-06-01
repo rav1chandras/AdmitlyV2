@@ -268,6 +268,77 @@ export async function ensureSchema(): Promise<void> {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS processed_events (
+        stripe_event_id VARCHAR(255) PRIMARY KEY,
+        event_type VARCHAR(64) NOT NULL,
+        outcome VARCHAR(32) NOT NULL DEFAULT 'processed',
+        received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_processed_events_received ON processed_events(received_at DESC);
+
+      CREATE TABLE IF NOT EXISTS payment_events (
+        id SERIAL PRIMARY KEY,
+        payment_id INTEGER REFERENCES payments(id) ON DELETE CASCADE,
+        stripe_event_id VARCHAR(255) UNIQUE NOT NULL,
+        event_type VARCHAR(64) NOT NULL,
+        status VARCHAR(32),
+        amount_cents INTEGER,
+        reason TEXT,
+        details JSONB DEFAULT '{}',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_payment_events_payment ON payment_events(payment_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_payment_events_type ON payment_events(event_type);
+
+      CREATE TABLE IF NOT EXISTS sent_emails (
+        id SERIAL PRIMARY KEY,
+        sender_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        sender_email VARCHAR(255),
+        recipient_type VARCHAR(32) NOT NULL,
+        recipient_email VARCHAR(255) NOT NULL,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        success BOOLEAN NOT NULL DEFAULT FALSE,
+        error TEXT,
+        sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sent_emails_sent_at ON sent_emails(sent_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_sent_emails_sender ON sent_emails(sender_user_id);
+      CREATE INDEX IF NOT EXISTS idx_sent_emails_recip ON sent_emails(recipient_email);
+
+      CREATE TABLE IF NOT EXISTS premium_requests (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        plan_id INTEGER REFERENCES ep_plans(id) ON DELETE SET NULL,
+        plan_name VARCHAR(100) NOT NULL,
+        amount_cents_quoted INTEGER NOT NULL,
+        amount_cents_invoiced INTEGER,
+        counselor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'pending_review'
+          CHECK (status IN ('pending_review','awaiting_payment','paid','cancelled_by_student','rejected','voided','expired')),
+        rejection_reason TEXT,
+        stripe_invoice_id VARCHAR(255),
+        stripe_invoice_item_id VARCHAR(255),
+        hosted_invoice_url TEXT,
+        invoice_sent_at TIMESTAMPTZ,
+        invoice_expires_at TIMESTAMPTZ,
+        reminder_sent_at TIMESTAMPTZ,
+        paid_at TIMESTAMPTZ,
+        last_attempt_failed_at TIMESTAMPTZ,
+        last_failure_reason TEXT,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_premium_requests_one_active
+        ON premium_requests(user_id)
+        WHERE status IN ('pending_review','awaiting_payment');
+      CREATE INDEX IF NOT EXISTS idx_premium_requests_user ON premium_requests(user_id);
+      CREATE INDEX IF NOT EXISTS idx_premium_requests_status ON premium_requests(status);
+      CREATE INDEX IF NOT EXISTS idx_premium_requests_invoice ON premium_requests(stripe_invoice_id);
+      CREATE INDEX IF NOT EXISTS idx_premium_requests_expires ON premium_requests(invoice_expires_at) WHERE status = 'awaiting_payment';
+      CREATE INDEX IF NOT EXISTS idx_premium_requests_failed ON premium_requests(last_attempt_failed_at DESC) WHERE last_attempt_failed_at IS NOT NULL;
+
       CREATE TABLE IF NOT EXISTS counselor_settings (
         id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
         availability_enabled BOOLEAN DEFAULT TRUE,
@@ -309,6 +380,11 @@ export async function ensureSchema(): Promise<void> {
     await safeDDL(`ALTER TABLE ep_counselors ADD COLUMN IF NOT EXISTS hourly_rate_cents INTEGER DEFAULT 5000`);
     await safeDDL(`ALTER TABLE ep_counselors ADD COLUMN IF NOT EXISTS total_earned_cents INTEGER DEFAULT 0`);
     await safeDDL(`ALTER TABLE ep_plans ADD COLUMN IF NOT EXISTS session_duration_minutes INTEGER DEFAULT 60`);
+    await safeDDL(`ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_status_check`);
+    await safeDDL(`ALTER TABLE payments ADD CONSTRAINT payments_status_check CHECK (status IN ('pending', 'succeeded', 'failed', 'refunded', 'cancelled', 'disputed'))`);
+    await safeDDL(`ALTER TABLE premium_requests ADD COLUMN IF NOT EXISTS last_attempt_failed_at TIMESTAMPTZ`);
+    await safeDDL(`ALTER TABLE premium_requests ADD COLUMN IF NOT EXISTS last_failure_reason TEXT`);
+    await safeDDL(`ALTER TABLE premium_requests ADD COLUMN IF NOT EXISTS attempt_count INTEGER NOT NULL DEFAULT 0`);
     // Drop unique constraint on (counselor_id, student_id) to allow multiple plans
     await safeDDL(`ALTER TABLE ep_assignments DROP CONSTRAINT IF EXISTS ep_assignments_counselor_id_student_id_key`);
 

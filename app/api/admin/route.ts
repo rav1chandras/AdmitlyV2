@@ -299,7 +299,7 @@ export async function GET(request: NextRequest) {
     // ── Data Health: table row counts + freshness ──
     if (view === 'data_health') {
       const pool = getPool();
-      const tables = ['users', 'profiles', 'colleges', 'essays', 'colleges_master', 'programs_master', 'llm_usage', 'ep_counselors', 'ep_assignments', 'ep_plans', 'student_settings'];
+      const tables = ['users', 'profiles', 'colleges', 'essay_drafts', 'colleges_master', 'programs_master', 'llm_usage', 'ep_counselors', 'ep_assignments', 'ep_plans', 'student_settings'];
       const counts: Record<string, number> = {};
       for (const t of tables) {
         try {
@@ -385,8 +385,8 @@ export async function GET(request: NextRequest) {
         const total = await pool.query(`SELECT COUNT(*)::int AS cnt FROM users WHERE role='student'`);
         const withProfile = await pool.query(`SELECT COUNT(*)::int AS cnt FROM profiles`);
         const withColleges = await pool.query(`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM colleges`);
-        const withEssays = await pool.query(`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM essays`);
-        const submitted = await pool.query(`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM essays WHERE status='submitted'`);
+        const withEssays = await pool.query(`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM essay_drafts`);
+        const submitted = await pool.query(`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM essay_drafts WHERE status='submitted'`);
         const paid = await pool.query(`SELECT COUNT(*)::int AS cnt FROM users WHERE role='student' AND subscription_status IN ('pro','premium')`);
         return NextResponse.json({
           signups: total.rows[0].cnt,
@@ -429,6 +429,111 @@ export async function GET(request: NextRequest) {
           students_with_colleges: studentsWithColleges.rows[0].cnt,
         });
       } catch { return NextResponse.json({ bucket_distribution:[], top_schools:[], major_distribution:[], total_saved:0, students_with_colleges:0 }); }
+    }
+
+    // ── Popular Colleges: saved-school demand + essay activity by school ──
+    if (view === 'popular_colleges') {
+      const pool = getPool();
+      const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+      const dateFrom = searchParams.get('date_from');
+      const dateTo = searchParams.get('date_to');
+      const from = dateFrom && dateRe.test(dateFrom) ? dateFrom : null;
+      const to = dateTo && dateRe.test(dateTo) ? dateTo : null;
+
+      const buildDateWhere = (column: string, startIndex: number) => {
+        const parts: string[] = [];
+        const params: any[] = [];
+        let idx = startIndex;
+        if (from) {
+          parts.push(`${column} >= $${idx++}::date`);
+          params.push(from);
+        }
+        if (to) {
+          parts.push(`${column} < ($${idx++}::date + INTERVAL '1 day')`);
+          params.push(to);
+        }
+        return { sql: parts.length ? parts.join(' AND ') : 'TRUE', params };
+      };
+
+      try {
+        const saveFilter = buildDateWhere('c.created_at', 1);
+        const essayFilter = buildDateWhere('ed.created_at', saveFilter.params.length + 1);
+        const params = [...saveFilter.params, ...essayFilter.params];
+
+        const popularRes = await pool.query(`
+          WITH saved AS (
+            SELECT
+              LOWER(TRIM(c.name)) AS college_key,
+              MIN(c.name) AS name,
+              COUNT(*)::int AS total,
+              COUNT(DISTINCT c.user_id)::int AS students,
+              COUNT(*) FILTER (WHERE LOWER(c.bucket) = 'reach')::int AS reach,
+              COUNT(*) FILTER (WHERE LOWER(c.bucket) = 'target')::int AS target,
+              COUNT(*) FILTER (WHERE LOWER(c.bucket) = 'safety')::int AS safety,
+              MAX(c.created_at) AS last_added
+            FROM colleges c
+            WHERE ${saveFilter.sql}
+            GROUP BY LOWER(TRIM(c.name))
+          ),
+          essay_usage AS (
+            SELECT
+              LOWER(TRIM(COALESCE(NULLIF(ed.college_name, ''), c.name))) AS college_key,
+              COUNT(*)::int AS essays,
+              COUNT(*) FILTER (WHERE ed.status = 'submitted')::int AS submitted_essays
+            FROM essay_drafts ed
+            LEFT JOIN colleges c ON c.id = ed.college_id
+            WHERE ${essayFilter.sql}
+              AND COALESCE(NULLIF(TRIM(COALESCE(ed.college_name, c.name)), ''), '') <> ''
+            GROUP BY LOWER(TRIM(COALESCE(NULLIF(ed.college_name, ''), c.name)))
+          )
+          SELECT
+            s.name,
+            s.total,
+            s.students,
+            s.reach,
+            s.target,
+            s.safety,
+            COALESCE(e.essays, 0)::int AS essays,
+            COALESCE(e.submitted_essays, 0)::int AS submitted_essays,
+            s.last_added
+          FROM saved s
+          LEFT JOIN essay_usage e ON e.college_key = s.college_key
+          ORDER BY s.total DESC, s.students DESC, s.name ASC
+          LIMIT 50
+        `, params);
+
+        const summaryRes = await pool.query(`
+          SELECT
+            COUNT(*)::int AS total_adds,
+            COUNT(DISTINCT user_id)::int AS students,
+            COUNT(DISTINCT LOWER(TRIM(name)))::int AS colleges,
+            COUNT(*) FILTER (WHERE LOWER(bucket) = 'reach')::int AS reach,
+            COUNT(*) FILTER (WHERE LOWER(bucket) = 'target')::int AS target,
+            COUNT(*) FILTER (WHERE LOWER(bucket) = 'safety')::int AS safety
+          FROM colleges c
+          WHERE ${saveFilter.sql}
+        `, saveFilter.params);
+
+        const essaySummaryRes = await pool.query(`
+          SELECT
+            COUNT(*)::int AS essays,
+            COUNT(*) FILTER (WHERE status = 'submitted')::int AS submitted_essays
+          FROM essay_drafts ed
+          WHERE ${essayFilter.sql}
+        `, essayFilter.params);
+
+        return NextResponse.json({
+          colleges: popularRes.rows,
+          summary: {
+            ...(summaryRes.rows[0] || { total_adds: 0, students: 0, colleges: 0, reach: 0, target: 0, safety: 0 }),
+            ...(essaySummaryRes.rows[0] || { essays: 0, submitted_essays: 0 }),
+          },
+          filters: { date_from: from, date_to: to },
+        });
+      } catch (err: any) {
+        console.error('[Admin popular_colleges]', err.message);
+        return NextResponse.json({ colleges: [], summary: { total_adds: 0, students: 0, colleges: 0, reach: 0, target: 0, safety: 0, essays: 0, submitted_essays: 0 } });
+      }
     }
 
     // ── Error Log: from admin_logs table ──

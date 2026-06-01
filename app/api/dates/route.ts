@@ -3,12 +3,14 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getKeyDates, upsertKeyDate, updateKeyDate, deleteKeyDate } from '@/lib/db';
 import { isAdmin } from '@/lib/auth-helpers';
+import { ensureSchema } from '@/lib/db_schema';
 
 export const dynamic = 'force-dynamic';
 
 // GET — public, returns all active dates
 export async function GET() {
   try {
+    await ensureSchema();
     const dates = await getKeyDates(true);
     return NextResponse.json(dates);
   } catch { return NextResponse.json([]); }
@@ -20,6 +22,7 @@ export async function POST(request: NextRequest) {
   if (!isAdmin(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  await ensureSchema();
   const data = await request.json();
   const result = await upsertKeyDate(data);
   return result ? NextResponse.json(result) : NextResponse.json({ error: 'Failed' }, { status: 500 });
@@ -31,6 +34,7 @@ export async function PATCH(request: NextRequest) {
   if (!isAdmin(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  await ensureSchema();
   const { id, ...data } = await request.json();
   const result = await updateKeyDate(id, data);
   return result ? NextResponse.json(result) : NextResponse.json({ error: 'Failed' }, { status: 500 });
@@ -42,6 +46,7 @@ export async function DELETE(request: NextRequest) {
   if (!isAdmin(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  await ensureSchema();
   const { id } = await request.json();
   const ok = await deleteKeyDate(id);
   return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: 'Failed' }, { status: 500 });

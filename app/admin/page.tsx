@@ -44,6 +44,30 @@ interface LlmUsageRow {
   cost_usd: number; created_at: string;
 }
 interface NewsItem { id: number; headline: string; summary: string; tag: string; is_visible: boolean; source_url?: string; is_custom?: boolean; created_at: string; }
+interface PopularCollegeRow {
+  name: string;
+  total: number;
+  students: number;
+  reach: number;
+  target: number;
+  safety: number;
+  essays: number;
+  submitted_essays: number;
+  last_added: string | null;
+}
+interface PopularCollegeData {
+  colleges: PopularCollegeRow[];
+  summary: {
+    total_adds: number;
+    students: number;
+    colleges: number;
+    reach: number;
+    target: number;
+    safety: number;
+    essays: number;
+    submitted_essays: number;
+  };
+}
 
 function fmt(n: number, dec = 0) { return n.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
 function fmtDate(s: string | null) { if (!s) return '—'; return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
@@ -395,6 +419,8 @@ export default function AdminPage() {
   // ── NEW: Popular Colleges state ──
   const [popularSort, setPopularSort] = useState<'total'|'reach'|'target'|'safety'|'essays'>('total');
   const [popularView, setPopularView] = useState<'table'|'bars'>('table');
+  const [popularData, setPopularData] = useState<PopularCollegeData | null>(null);
+  const [popularLoading, setPopularLoading] = useState(false);
 
   // ── NEW: Action Items state ──
   const [actionAssigning, setActionAssigning] = useState<number|null>(null);
@@ -649,7 +675,7 @@ export default function AdminPage() {
         // /api/admin?view=recoveries (which 400s with "Unknown view").
       }
       else if (tab === 'payments') { setLoading(true); fetchData('students'); fetch('/api/admin?view=payments',{cache:'no-store'}).then(r=>r.json()).then(d=>{setPaymentData(d);setLoading(false);}).catch(e=>{console.error('[admin] payments fetch failed:',e);setPaymentData({payments:[],stats:{total_revenue:0,this_month:0,pending:0,refunded:0}});setLoading(false);}); }
-      else if (tab === 'popular') fetchData('students');
+      else if (tab === 'popular') { /* loaded by the popular-colleges effect below */ }
       else if (tab === 'engine') { setLoading(true); fetch('/api/admin?view=engine_health',{cache:'no-store'}).then(r=>r.json()).then(d=>{setEngineData(d);setLoading(false);}).catch(e=>{console.error('[admin] engine_health fetch failed:',e);setEngineData({bucket_distribution:[],top_schools:[],major_distribution:[],total_saved:0,students_with_colleges:0});setLoading(false);}); }
       else if (tab === 'funnel') { setLoading(true); fetch('/api/admin?view=funnel',{cache:'no-store'}).then(r=>r.json()).then(d=>{setFunnelData(d);setLoading(false);}).catch(e=>{console.error('[admin] funnel fetch failed:',e);setFunnelData({signups:0,profile_done:0,ran_engine:0,saved_college:0,started_essay:0,submitted_essay:0,purchased:0});setLoading(false);}); }
       else if (tab === 'subs') { setLoading(true); fetch('/api/admin?view=subscriptions',{cache:'no-store'}).then(r=>r.json()).then(d=>{setSubsData(d);setLoading(false);}).catch(e=>{console.error('[admin] subs fetch failed:',e);setSubsData({tiers:[],expiring_7d:0,expiring_30d:0,churned_30d:0});setLoading(false);}); }
@@ -705,6 +731,26 @@ export default function AdminPage() {
       .finally(() => { if (!cancelled) setMetricsLoading(false); });
     return () => { cancelled = true; };
   }, [tab, status, metricsRange, refreshAt]);
+
+  // Popular Colleges has date filters, so keep it separate from the generic
+  // tab loader instead of reusing the unfiltered Students payload.
+  useEffect(() => {
+    if (status !== 'authenticated' || tab !== 'popular') return;
+    let cancelled = false;
+    const params = new URLSearchParams({ view: 'popular_colleges' });
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
+    setPopularLoading(true);
+    fetch(`/api/admin?${params.toString()}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then((d: PopularCollegeData) => { if (!cancelled) setPopularData(d); })
+      .catch(e => {
+        console.error('[admin] popular_colleges fetch failed:', e);
+        if (!cancelled) setPopularData({ colleges: [], summary: { total_adds: 0, students: 0, colleges: 0, reach: 0, target: 0, safety: 0, essays: 0, submitted_essays: 0 } });
+      })
+      .finally(() => { if (!cancelled) setPopularLoading(false); });
+    return () => { cancelled = true; };
+  }, [tab, status, dateFrom, dateTo, refreshAt]);
 
   const filteredAll = students
     .filter(s => {
@@ -4612,20 +4658,15 @@ export default function AdminPage() {
 
               {/* Summary cards */}
               {(() => {
-                const collegeStats = students.reduce((acc, s) => ({
-                  total: acc.total + s.college_count,
-                  reach: acc.reach + s.reach_count,
-                  target: acc.target + s.target_count,
-                  safety: acc.safety + s.safety_count,
-                  essays: acc.essays + s.essay_count,
-                }), { total:0, reach:0, target:0, safety:0, essays:0 });
+                const collegeStats = popularData?.summary || { total_adds: 0, reach: 0, target: 0, safety: 0, essays: 0, students: 0, colleges: 0, submitted_essays: 0 };
+                const totalAdds = collegeStats.total_adds || 0;
                 return (
                   <div style={ss({display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10})}>
-                    <StatCard accent icon="fa-university" label="Total Adds" value={fmt(collegeStats.total)} sub="across all students" />
-                    <StatCard icon="fa-arrow-up" label="As Reach" value={fmt(collegeStats.reach)} sub={`${collegeStats.total>0?Math.round(collegeStats.reach/collegeStats.total*100):0}% of adds`} />
-                    <StatCard icon="fa-bullseye" label="As Target" value={fmt(collegeStats.target)} sub={`${collegeStats.total>0?Math.round(collegeStats.target/collegeStats.total*100):0}% of adds`} />
-                    <StatCard icon="fa-shield-halved" label="As Safety" value={fmt(collegeStats.safety)} sub={`${collegeStats.total>0?Math.round(collegeStats.safety/collegeStats.total*100):0}% of adds`} />
-                    <StatCard icon="fa-pen-nib" label="Total Essays" value={fmt(collegeStats.essays)} sub={`avg ${students.length>0?fmt(collegeStats.essays/students.length,1):'0'} per student`} />
+                    <StatCard accent icon="fa-university" label="Total Adds" value={fmt(totalAdds)} sub={`${fmt(collegeStats.students)} students · ${fmt(collegeStats.colleges)} schools`} />
+                    <StatCard icon="fa-arrow-up" label="As Reach" value={fmt(collegeStats.reach)} sub={`${totalAdds>0?Math.round(collegeStats.reach/totalAdds*100):0}% of adds`} />
+                    <StatCard icon="fa-bullseye" label="As Target" value={fmt(collegeStats.target)} sub={`${totalAdds>0?Math.round(collegeStats.target/totalAdds*100):0}% of adds`} />
+                    <StatCard icon="fa-shield-halved" label="As Safety" value={fmt(collegeStats.safety)} sub={`${totalAdds>0?Math.round(collegeStats.safety/totalAdds*100):0}% of adds`} />
+                    <StatCard icon="fa-pen-nib" label="College Essays" value={fmt(collegeStats.essays)} sub={`${fmt(collegeStats.submitted_essays)} submitted`} />
                   </div>
                 );
               })()}
@@ -4655,17 +4696,83 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Note: Real data would come from an API aggregation query. Placeholder shows structure. */}
-                <div style={ss({padding:'60px 20px',textAlign:'center'})}>
-                  <div style={ss({width:56,height:56,borderRadius:16,background:'var(--stone-50)',display:'inline-flex',alignItems:'center',justifyContent:'center',marginBottom:14})}>
-                    <i className="fas fa-university" style={{fontSize:22,color:'var(--stone-300)'}}></i>
-                  </div>
-                  <div style={ss({fontSize:14,fontWeight:800,color:'var(--stone-700)',marginBottom:4})}>College Popularity Tracking</div>
-                  <div style={ss({fontSize:12,fontWeight:500,color:'var(--stone-400)',maxWidth:400,margin:'0 auto'})}>
-                    This panel will aggregate which colleges students add most frequently, broken down by reach/target/safety bucket and essay count.
-                    Requires a new API endpoint: <code style={{background:'var(--stone-100)',padding:'1px 4px',borderRadius:4,fontSize:11}}>GET /api/admin?view=popular_colleges</code>
-                  </div>
-                </div>
+                {(() => {
+                  const rows = [...(popularData?.colleges || [])].sort((a, b) => {
+                    const av = Number(a[popularSort] || 0);
+                    const bv = Number(b[popularSort] || 0);
+                    return bv - av || b.students - a.students || a.name.localeCompare(b.name);
+                  }).slice(0, 20);
+                  const maxVal = Math.max(...rows.map(r => Number(r[popularSort] || 0)), 1);
+
+                  if (popularLoading) {
+                    return (
+                      <div style={ss({padding:'54px 20px',textAlign:'center',color:'var(--stone-400)',fontSize:13,fontWeight:700})}>
+                        <i className="fas fa-spinner fa-spin" style={{fontSize:18,marginRight:8}}></i>Loading college demand…
+                      </div>
+                    );
+                  }
+
+                  if (rows.length === 0) {
+                    return (
+                      <div style={ss({padding:'54px 20px',textAlign:'center'})}>
+                        <div style={ss({width:56,height:56,borderRadius:16,background:'var(--stone-50)',display:'inline-flex',alignItems:'center',justifyContent:'center',marginBottom:14})}>
+                          <i className="fas fa-university" style={{fontSize:22,color:'var(--stone-300)'}}></i>
+                        </div>
+                        <div style={ss({fontSize:14,fontWeight:800,color:'var(--stone-700)',marginBottom:4})}>No saved colleges in this range</div>
+                        <div style={ss({fontSize:12,fontWeight:500,color:'var(--stone-400)',maxWidth:380,margin:'0 auto'})}>
+                          Try widening the date range or wait until students start saving colleges.
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (popularView === 'bars') {
+                    return (
+                      <div style={ss({padding:'14px 20px 18px',display:'grid',gap:10})}>
+                        {rows.map((row, i) => {
+                          const value = Number(row[popularSort] || 0);
+                          const pct = Math.max(4, Math.round(value / maxVal * 100));
+                          return (
+                            <div key={row.name} style={ss({display:'grid',gridTemplateColumns:'34px 220px 1fr 76px',gap:12,alignItems:'center',padding:'9px 0',borderBottom:i<rows.length-1?'1px solid var(--border-light)':'none'})}>
+                              <span style={ss({fontSize:11,fontWeight:900,color:'var(--stone-300)',textAlign:'right'})}>{i + 1}</span>
+                              <div style={ss({minWidth:0})}>
+                                <div style={ss({fontSize:12,fontWeight:850,color:'var(--stone-900)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'})}>{row.name}</div>
+                                <div style={ss({fontSize:10,fontWeight:650,color:'var(--stone-400)',marginTop:2})}>{row.students} student{row.students===1?'':'s'} · {row.essays} essay{row.essays===1?'':'s'}</div>
+                              </div>
+                              <div style={ss({height:10,borderRadius:999,background:'var(--stone-100)',overflow:'hidden',display:'flex'})}>
+                                <div style={ss({width:`${pct}%`,borderRadius:999,background:'var(--stone-900)',minWidth:12})}></div>
+                              </div>
+                              <div style={ss({fontSize:12,fontWeight:900,color:'var(--stone-900)',textAlign:'right'})}>{fmt(value)}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <table style={ss({width:'100%',borderCollapse:'collapse'})}>
+                      <thead><tr style={{background:'var(--stone-50)',borderBottom:'1px solid var(--border-light)'}}>
+                        {['#','College','Students','Adds','Reach','Target','Safety','Essays','Last Added'].map(h => <th key={h} style={thS}>{h}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {rows.map((row, i) => (
+                          <tr key={row.name} style={{borderBottom:'1px solid var(--border-light)'}}>
+                            <td style={ss({...tdS,fontSize:11,fontWeight:900,color:'var(--stone-300)',width:36})}>{i + 1}</td>
+                            <td style={ss({...tdS,fontWeight:800,color:'var(--stone-900)'})}>{row.name}</td>
+                            <td style={ss({...tdS,fontWeight:800})}>{fmt(row.students)}</td>
+                            <td style={ss({...tdS,fontWeight:900,color:'var(--stone-900)'})}>{fmt(row.total)}</td>
+                            <td style={ss({...tdS,fontWeight:800,color:'var(--red)'})}>{fmt(row.reach)}</td>
+                            <td style={ss({...tdS,fontWeight:800,color:'#d97706'})}>{fmt(row.target)}</td>
+                            <td style={ss({...tdS,fontWeight:800,color:'var(--emerald)'})}>{fmt(row.safety)}</td>
+                            <td style={ss({...tdS,fontWeight:800})}>{fmt(row.essays)}{row.submitted_essays>0?<span style={ss({fontSize:10,fontWeight:700,color:'var(--stone-400)',marginLeft:4})}>/{fmt(row.submitted_essays)} sub</span>:null}</td>
+                            <td style={ss({...tdS,fontSize:11,fontWeight:650,color:'var(--stone-400)'})}>{fmtDate(row.last_added)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  );
+                })()}
               </div>
             </div>
           )}

@@ -6,6 +6,12 @@ export default withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
     const role = (token?.role as string) || '';
+    const email = typeof token?.email === 'string' ? token.email.toLowerCase() : '';
+    const envAdmins = (process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean);
+    const isAdmin = role === 'admin' || (!!email && envAdmins.includes(email));
 
     // /profile merged into /dashboard — redirect for bookmarks/old links
     if (path === '/profile' || path.startsWith('/profile/')) {
@@ -18,7 +24,7 @@ export default withAuth(
     }
 
     // Admin-only routes
-    if (path.startsWith('/admin') && role !== 'admin') {
+    if (path.startsWith('/admin') && !isAdmin) {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
 

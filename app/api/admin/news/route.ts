@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPool } from '@/lib/db';
 import { isAdmin } from '@/lib/auth-helpers';
+import { ensureSchema } from '@/lib/db_schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,11 +18,13 @@ export async function GET(request: NextRequest) {
     if (!isAdmin(session)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    await ensureSchema();
     const result = await pool.query('SELECT * FROM admissions_news ORDER BY is_custom DESC NULLS LAST, created_at DESC');
     return NextResponse.json(result.rows);
   }
 
   // Public: only visible items, latest 6
+  await ensureSchema();
   const result = await pool.query('SELECT * FROM admissions_news WHERE is_visible = true ORDER BY is_custom DESC NULLS LAST, created_at DESC LIMIT 6');
   return NextResponse.json(result.rows);
 }
@@ -34,6 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   const pool = getPool();
+  await ensureSchema();
 
   // ── Custom article: { custom: true, headline, summary, tag, source_url } ──
   let body: any = {};
@@ -163,6 +167,7 @@ export async function PATCH(request: NextRequest) {
 
   const { id, is_visible } = await request.json();
   const pool = getPool();
+  await ensureSchema();
   await pool.query('UPDATE admissions_news SET is_visible = $1 WHERE id = $2', [is_visible, id]);
   return NextResponse.json({ ok: true });
 }
@@ -176,6 +181,7 @@ export async function DELETE(request: NextRequest) {
 
   const { id } = await request.json();
   const pool = getPool();
+  await ensureSchema();
   await pool.query('DELETE FROM admissions_news WHERE id = $1', [id]);
   return NextResponse.json({ ok: true });
 }

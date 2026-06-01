@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
 
       // Essays
       const { rows: essays } = await pool.query(
-        `SELECT COUNT(*)::int AS cnt, MIN(created_at) AS first FROM essays WHERE user_id = $1`, [uid]
+        `SELECT COUNT(*)::int AS cnt, MIN(created_at) AS first FROM essay_drafts WHERE user_id = $1`, [uid]
       );
       if (essays[0]?.cnt > 0) {
         events.push({
