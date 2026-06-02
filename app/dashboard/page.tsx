@@ -766,7 +766,15 @@ function AcademicTab({
       </div>
     </div>
   );
-  const rangeStyle: React.CSSProperties = { width: '100%', accentColor: DASH_NAVY, margin: 0 };
+  const rangeStyle = (value: number, max: number): React.CSSProperties => {
+    const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+    return {
+      width: '100%',
+      accentColor: DASH_NAVY,
+      margin: 0,
+      background: `linear-gradient(to right, ${DASH_NAVY} 0%, ${DASH_NAVY} ${pct}%, var(--stone-200) ${pct}%, var(--stone-200) 100%)`,
+    };
+  };
 
   const save = async () => {
     setSaving(true);
@@ -852,7 +860,7 @@ function AcademicTab({
                 <div style={s({ ...label, marginBottom: 0 })}>AP / IB</div>
                 <div style={s({ position: 'relative', paddingTop: 20, minWidth: 0 })}>
                   <span style={s({ position: 'absolute', left: `${apPct}%`, top: 0, transform: 'translateX(-50%)', minWidth: 24, height: 19, borderRadius: 999, background: DASH_NAVY, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 900 })}>{apTaken}</span>
-                  <input type="range" min={0} max={apTakenMax} value={apTaken} onChange={e => setDraft(d => ({ ...d, ap_taken: Math.min(Number(e.target.value), Number(d.ap_offered) || apTakenMax) }))} style={rangeStyle} />
+                  <input type="range" min={0} max={apTakenMax} value={apTaken} onChange={e => setDraft(d => ({ ...d, ap_taken: Math.min(Number(e.target.value), Number(d.ap_offered) || apTakenMax) }))} style={rangeStyle(apTaken, apTakenMax)} />
                 </div>
                 <div>
                   <div style={s({ ...label, marginBottom: 3, textAlign: 'center' })}>Offered</div>
@@ -886,7 +894,7 @@ function AcademicTab({
             <div>
               <div style={s(label)}>Leadership Roles</div>
               <div style={s({ display: 'grid', gridTemplateColumns: '1fr 42px', gap: 8, alignItems: 'center' })}>
-                <input type="range" min={0} max={10} value={roles} onChange={e => setDraft(d => ({ ...d, leadership_roles: Number(e.target.value) }))} style={rangeStyle} />
+                <input type="range" min={0} max={10} value={roles} onChange={e => setDraft(d => ({ ...d, leadership_roles: Number(e.target.value) }))} style={rangeStyle(roles, 10)} />
                 <div style={s({ height: 34, borderRadius: 10, display: 'grid', placeItems: 'center', background: '#f2f6fd', color: DASH_NAVY, fontSize: 15, fontWeight: 900 })}>{roles}</div>
               </div>
             </div>

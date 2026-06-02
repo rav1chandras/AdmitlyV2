@@ -923,8 +923,8 @@ export default function EssayMockupPage() {
                   <>
                     <div style={card({ padding: 14 })}>
                       <div style={eyebrow}>Inputs</div>
-                      <ToggleRow label="My Voice" sub={`${validVoiceSamples} sample${validVoiceSamples === 1 ? '' : 's'}`} checked={useVoice} onChange={() => setUseVoice(v => !v)} />
-                      <ToggleRow label="Journey" sub={useJourney ? 'Activities on' : 'Not included'} checked={useJourney} onChange={() => setUseJourney(v => !v)} />
+                      <ToggleRow label="My Voice" sub="Learns from your past essays so drafts sound more like you." checked={useVoice} onChange={() => setUseVoice(v => !v)} />
+                      <ToggleRow label="Journey" sub="Adds your activities and personal story so the essay feels specific to your life." checked={useJourney} onChange={() => setUseJourney(v => !v)} />
                       {useJourney && (
                         <div style={alertStyle('var(--stone-100)', 'var(--stone-600)')}>
                           <i className="fas fa-shield-halved"></i>
@@ -932,8 +932,8 @@ export default function EssayMockupPage() {
                         </div>
                       )}
                       <div style={ss({ marginTop: 12 })}><div style={fieldLabel}>Tone</div><div style={ss({ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 7 })}>{TONE_OPTIONS.map(t => <button key={t} onClick={() => toggleTone(t)} style={toneChip(toneChips.includes(t))}>{t}</button>)}</div></div>
-                      <div style={ss({ marginTop: 12 })}><div style={fieldLabel}>Formality</div><input type="range" min={1} max={5} value={formality} onChange={e => setField(setFormality, parseInt(e.target.value, 10))} /></div>
-                      <div style={ss({ marginTop: 12 })}><div style={fieldLabel}>Narrative focus</div><input type="range" min={1} max={4} value={narrativeFocus} onChange={e => setField(setNarrativeFocus, parseInt(e.target.value, 10))} /></div>
+                      <div style={ss({ marginTop: 12 })}><div style={fieldLabel}>Formality</div><input type="range" min={1} max={5} value={formality} onChange={e => setField(setFormality, parseInt(e.target.value, 10))} style={rangeFillStyle(formality, 1, 5)} /></div>
+                      <div style={ss({ marginTop: 12 })}><div style={fieldLabel}>Narrative focus</div><input type="range" min={1} max={4} value={narrativeFocus} onChange={e => setField(setNarrativeFocus, parseInt(e.target.value, 10))} style={rangeFillStyle(narrativeFocus, 1, 4)} /></div>
                     </div>
 
                     {aiError && <div style={alertStyle('#FEF2F2', '#B91C1C')}><i className="fas fa-circle-exclamation"></i>{aiError}</div>}
@@ -1025,9 +1025,12 @@ function DraftCard({ draft, active, onSelect, onDelete, onShare }: { draft: Essa
 
 function ToggleRow({ label, sub, checked, onChange }: { label: string; sub: string; checked: boolean; onChange: () => void }) {
   return (
-    <div style={ss({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: '1px solid var(--border-light)' })}>
-      <div><div style={ss({ fontSize: 13, fontWeight: 900 })}>{label}</div><div style={ss({ fontSize: 11, color: 'var(--stone-400)', marginTop: 2 })}>{sub}</div></div>
-      <button onClick={onChange} style={ss({ width: 42, height: 24, borderRadius: 999, border: 'none', background: checked ? ESSAY_NAVY : 'var(--stone-200)', position: 'relative', cursor: 'pointer' })}><span style={ss({ position: 'absolute', top: 3, left: checked ? 21 : 3, width: 18, height: 18, borderRadius: 999, background: '#fff', transition: 'left .15s' })}></span></button>
+    <div style={ss({ padding: '12px 0', borderTop: '1px solid var(--border-light)' })}>
+      <div style={ss({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 })}>
+        <div style={ss({ fontSize: 13, fontWeight: 900, color: 'var(--stone-900)' })}>{label}</div>
+        <button onClick={onChange} style={ss({ width: 42, height: 24, borderRadius: 999, border: 'none', background: checked ? ESSAY_NAVY : 'var(--stone-200)', position: 'relative', cursor: 'pointer', flexShrink: 0 })}><span style={ss({ position: 'absolute', top: 3, left: checked ? 21 : 3, width: 18, height: 18, borderRadius: 999, background: '#fff', transition: 'left .15s' })}></span></button>
+      </div>
+      <div style={ss({ fontSize: 11, color: 'var(--stone-400)', lineHeight: 1.45, marginTop: 5, paddingRight: 2 })}>{sub}</div>
     </div>
   );
 }
@@ -1115,6 +1118,14 @@ function tabButton(active: boolean): React.CSSProperties { return { ...coachTabB
 function coachTabButton(active: boolean): React.CSSProperties { return { flex: 1, border: 'none', borderRadius: 10, padding: '9px 8px', background: active ? ESSAY_NAVY : 'transparent', boxShadow: active ? '0 1px 2px rgba(0,0,0,.05)' : 'none', color: active ? '#fff' : 'var(--stone-500)', fontSize: 12, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }; }
 function tuneChip(active: boolean): React.CSSProperties { return { ...toneChip(active), padding: '8px 11px', fontSize: 12 }; }
 function toneChip(active: boolean): React.CSSProperties { return { padding: '7px 10px', borderRadius: 999, border: active ? `1px solid ${ESSAY_NAVY}` : '1px solid var(--border)', background: active ? ESSAY_NAVY : '#fff', color: active ? '#fff' : 'var(--stone-600)', fontSize: 11, fontWeight: 850, cursor: 'pointer', fontFamily: 'inherit' }; }
+function rangeFillStyle(value: number, min: number, max: number): React.CSSProperties {
+  const pct = max > min ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100)) : 0;
+  return {
+    width: '100%',
+    accentColor: ESSAY_NAVY,
+    background: `linear-gradient(to right, ${ESSAY_NAVY} 0%, ${ESSAY_NAVY} ${pct}%, var(--stone-200) ${pct}%, var(--stone-200) 100%)`,
+  };
+}
 function shareReviewButton(shared?: boolean | null): React.CSSProperties {
   return {
     ...btnMini,
