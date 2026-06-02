@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { useProCheck } from '@/lib/useProCheck';
@@ -181,6 +182,7 @@ function estimatedCollegeGpa(school: RecCollege) {
 
 export default function CollegesV2Page() {
   const { status, update: updateSession } = useSession();
+  const router = useRouter();
   const { isPaid, score: profileScore } = useProCheck();
   const [activeBucket, setActiveBucket] = useState<Bucket>('target');
   const [recData, setRecData] = useState<RecResponse | null>(null);
@@ -399,8 +401,7 @@ export default function CollegesV2Page() {
               <Toggle label="50%+ Accept" checked={highAccept} onChange={setHighAccept} />
               <Toggle label="Test Optional" checked={testOptional} onChange={setTestOptional} />
               <div style={css({ flex: 1 })}></div>
-              <button onClick={() => fetchRecommendations(true)} style={iconButton} title="Refresh"><i className="fas fa-rotate"></i></button>
-              <button style={iconButton} title="Filters"><i className="fas fa-sliders"></i></button>
+              <button onClick={() => router.push('/settings?tab=academic')} style={iconButton} title="Academic settings"><i className="fas fa-sliders"></i></button>
             </div>
 
             <div style={css({ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', border: '1px solid #e2e8f0', borderRadius: 12, background: '#fff', marginBottom: 18 })}>
@@ -607,11 +608,11 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 
 function Metric({ icon, label, value, last }: { icon: string; label: string; value: string | number; last?: boolean }) {
   return (
-    <div style={css({ display: 'grid', gridTemplateColumns: '46px 1fr', gap: 11, padding: '14px 24px', borderRight: last ? 'none' : '1px solid #e2e8f0', alignItems: 'center', minHeight: 79 })}>
-      <i className={`fas ${icon}`} style={{ color: APP_YELLOW_DARK, fontSize: 27 }}></i>
+    <div style={css({ display: 'grid', gridTemplateColumns: '38px 1fr', gap: 9, padding: '8px 20px', borderRight: last ? 'none' : '1px solid #e2e8f0', alignItems: 'center', minHeight: 60 })}>
+      <i className={`fas ${icon}`} style={{ color: '#06245B', fontSize: 22 }}></i>
       <div>
         <div style={css({ color: '#64748b', fontSize: 12, fontWeight: 800 })}>{label}</div>
-        <div style={css({ color: '#0f172a', fontSize: 27, fontWeight: 950, lineHeight: 1.05 })}>{value}</div>
+        <div style={css({ color: '#0f172a', fontSize: 22, fontWeight: 950, lineHeight: 1.05 })}>{value}</div>
       </div>
     </div>
   );
@@ -623,14 +624,16 @@ function StudentProfileTile({ inputs, last }: { inputs?: RecInputs; last?: boole
   const apValue = inputs?.ap_taken != null
     ? inputs.ap_offered ? `${inputs.ap_taken}/${inputs.ap_offered}` : String(inputs.ap_taken)
     : '—';
+  const majorValue = inputs?.primary_major || inputs?.alt_major || '—';
 
   return (
-    <div style={css({ display: 'grid', gridTemplateColumns: '38px 1fr', gap: 11, padding: '12px 22px', borderRight: last ? 'none' : '1px solid #e2e8f0', alignItems: 'center', minHeight: 79 })}>
-      <i className="fas fa-user-graduate" style={{ color: APP_YELLOW_DARK, fontSize: 25 }}></i>
-      <div style={css({ display: 'grid', gap: 5 })}>
+    <div style={css({ display: 'grid', gridTemplateColumns: '34px 1fr', gap: 9, padding: '7px 20px', borderRight: last ? 'none' : '1px solid #e2e8f0', alignItems: 'center', minHeight: 60 })}>
+      <i className="fas fa-user-graduate" style={{ color: '#06245B', fontSize: 21 }}></i>
+      <div style={css({ display: 'grid', gap: 2 })}>
         <ProfileRow label="GPA" value={fmtDecimal(inputs?.gpa_used ?? inputs?.gpa_raw)} />
         <ProfileRow label={scoreLabel} value={scoreValue ? String(scoreValue) : '—'} />
         <ProfileRow label="AP Count" value={apValue} />
+        <div style={css({ color: '#64748b', fontSize: 11, fontWeight: 650, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' })}>{majorValue}</div>
       </div>
     </div>
   );
@@ -640,7 +643,7 @@ function ProfileRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={css({ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' })}>
       <span style={css({ color: '#64748b', fontSize: 11, fontWeight: 850 })}>{label}</span>
-      <span style={css({ color: '#0f172a', fontSize: 14, fontWeight: 950 })}>{value}</span>
+      <span style={css({ color: '#0f172a', fontSize: 14, fontWeight: 950, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}>{value}</span>
     </div>
   );
 }

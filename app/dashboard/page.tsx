@@ -95,7 +95,6 @@ function DashboardInner() {
   const [intendedMajor, setIntendedMajor] = useState('');
   const [school, setSchool] = useState('');
   const [graduationYear, setGraduationYear] = useState<number | null>(null);
-  const [classRank, setClassRank] = useState('');
 
   // ── Activities ──
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -193,7 +192,6 @@ function DashboardInner() {
         : '';
       if (sch) setSchool(sch);
       if (s?.graduation_year) setGraduationYear(Number(s.graduation_year));
-      if (s?.class_rank) setClassRank(s.class_rank);
     }).catch(() => {});
 
     // Activities
@@ -282,19 +280,39 @@ function DashboardInner() {
   const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   // ── Save academic ──
-  const saveAcademic = useCallback(async (next: AcademicProfile, nextMajor: string) => {
+  const saveAcademic = useCallback(async (
+    next: AcademicProfile,
+    nextMajor: string,
+    nextSettings?: { gpaScale?: string; school?: string; graduationYear?: number | null }
+  ) => {
     setAcademic(next);
     await fetch('/api/profile', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...next, final_score: calcProfileScore({ ...next, gpa_scale: gpaScale }).finalScore }),
+      body: JSON.stringify({ ...next, final_score: calcProfileScore({ ...next, gpa_scale: nextSettings?.gpaScale ?? gpaScale }).finalScore }),
     });
+    setAnalysisStale(true);
     if (nextMajor !== intendedMajor) {
       setIntendedMajor(nextMajor);
+    }
+    if (nextSettings?.gpaScale && nextSettings.gpaScale !== gpaScale) setGpaScale(nextSettings.gpaScale);
+    if (nextSettings && 'school' in nextSettings) setSchool(nextSettings.school ?? '');
+    if (nextSettings && 'graduationYear' in nextSettings) setGraduationYear(nextSettings.graduationYear ?? null);
+    if (nextMajor !== intendedMajor || nextSettings) {
       try {
         const sRes = await fetch(`/api/settings?t=${Date.now()}`, { cache: 'no-store' });
         if (sRes.ok) {
           const current = await sRes.json();
-          await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...current, intended_major: nextMajor }) });
+          await fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...current,
+              intended_major: nextMajor,
+              gpa_scale: nextSettings?.gpaScale ?? current.gpa_scale,
+              high_school_name: nextSettings && 'school' in nextSettings ? (nextSettings.school ?? '') : current.high_school_name,
+              graduation_year: nextSettings && 'graduationYear' in nextSettings ? (nextSettings.graduationYear ?? null) : current.graduation_year,
+            }),
+          });
         }
       } catch {}
     }
@@ -453,7 +471,12 @@ function DashboardInner() {
             <TabNav active={activeTab} onChange={setActiveTab} activitiesCount={activities.length} />
 
             {activeTab === 'academic' && (
-              <AcademicTab academic={academic} gpaScale={gpaScale} intendedMajor={intendedMajor} school={school} graduationYear={graduationYear} classRank={classRank} onEdit={() => setEditAcademicOpen(true)} />
+              <AcademicTab
+                academic={academic}
+                gpaScale={gpaScale}
+                intendedMajor={intendedMajor}
+                onSave={saveAcademic}
+              />
             )}
             {activeTab === 'activities' && (
               <ActivitiesTab activities={activities} loading={activitiesLoading} onAdd={() => setActivityModal({ open: true, editing: null })} onEdit={a => setActivityModal({ open: true, editing: a })} onDelete={deleteActivity} />
@@ -637,41 +660,238 @@ function TabNav({ active, onChange, activitiesCount }: { active: TabId; onChange
   );
 }
 
-function AcademicTab({ academic, gpaScale, intendedMajor, school, graduationYear, classRank, onEdit }: { academic: AcademicProfile; gpaScale: string; intendedMajor: string; school: string; graduationYear: number | null; classRank: string; onEdit: () => void; }) {
-  const cards: { label: string; value: string; sub?: string; icon: string; color: string; bg: string }[] = [
-    { label: `GPA ${gpaScale === '5.0' ? '(W)' : '(UW)'}`, value: academic.gpa ? Number(academic.gpa).toFixed(2) : '—', sub: gpaScale === '5.0' ? 'Weighted scale' : 'Unweighted scale', icon: 'fa-chart-line', color: '#0F6E56', bg: '#E1F5EE' },
-    { label: 'SAT', value: academic.sat ? String(academic.sat) : '—', sub: academic.sat ? 'Best score' : 'Not set', icon: 'fa-pen-ruler', color: '#185FA5', bg: '#E6F1FB' },
-    { label: 'ACT', value: academic.act ? String(academic.act) : '—', sub: academic.act ? 'Best score' : 'Not set', icon: 'fa-stopwatch', color: '#534AB7', bg: '#EEEDFE' },
-    { label: 'AP / honors', value: academic.ap_taken ? `${academic.ap_taken} APs` : '—', sub: academic.ap_offered ? `${academic.ap_taken} of ${academic.ap_offered} offered` : 'Course rigor', icon: 'fa-layer-group', color: '#854F0B', bg: '#FAEEDA' },
-    { label: 'Intended major', value: intendedMajor || '—', sub: intendedMajor ? 'Academic direction' : 'Not set', icon: 'fa-compass', color: '#993556', bg: '#FBEAF0' },
-    { label: 'School', value: school || '—', sub: school ? 'High school' : 'Not set', icon: 'fa-school', color: '#5F5E5A', bg: '#F1EFE8' },
-    { label: 'Graduation year', value: graduationYear ? String(graduationYear) : '—', sub: graduationYear ? 'Application cohort' : 'Not set', icon: 'fa-calendar-check', color: '#0A2463', bg: '#E6F1FB' },
-    { label: 'Class rank', value: classRank || '—', sub: classRank ? 'School context' : 'Optional', icon: 'fa-ranking-star', color: '#A32D2D', bg: '#FCEBEB' },
-  ];
+function AcademicTab({
+  academic,
+  gpaScale,
+  intendedMajor,
+  onSave,
+}: {
+  academic: AcademicProfile;
+  gpaScale: string;
+  intendedMajor: string;
+  onSave: (next: AcademicProfile, nextMajor: string, nextSettings?: { gpaScale?: string; school?: string; graduationYear?: number | null }) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<AcademicProfile>(academic);
+  const [draftGpaText, setDraftGpaText] = useState(academic.gpa ? Number(academic.gpa).toFixed(2) : '');
+  const [draftGpaScale, setDraftGpaScale] = useState(gpaScale);
+  const [draftMajor, setDraftMajor] = useState(intendedMajor);
+  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  useEffect(() => {
+    setDraft(academic);
+    setDraftGpaText(academic.gpa ? Number(academic.gpa).toFixed(2) : '');
+    setDraftGpaScale(gpaScale);
+    setDraftMajor(intendedMajor);
+  }, [academic, gpaScale, intendedMajor]);
+
+  const setNum = (key: keyof AcademicProfile, raw: string, min: number, max: number, integer = true) => {
+    const cleaned = raw.replace(/[^0-9.]/g, '');
+    const parsed = integer ? parseInt(cleaned) : parseFloat(cleaned);
+    const value = Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : 0;
+    setDraft(d => ({ ...d, [key]: integer ? Math.round(value) : Math.round(value * 100) / 100 }));
+  };
+
+  const updateGpa = (raw: string) => {
+    const gpaMax = draftGpaScale === '5.0' ? 5 : 4;
+    const cleaned = raw.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+    if (!cleaned || cleaned === '.') {
+      setDraftGpaText(cleaned);
+      setDraft(d => ({ ...d, gpa: 0 }));
+      return;
+    }
+    const limited = cleaned.match(/^\d*(?:\.\d{0,2})?/)?.[0] ?? '';
+    const value = Math.min(gpaMax, parseFloat(limited) || 0);
+    setDraftGpaText(value >= gpaMax ? gpaMax.toFixed(2) : limited);
+    setDraft(d => ({ ...d, gpa: Math.round(value * 100) / 100 }));
+  };
+
+  const changeGpaScale = (scale: string) => {
+    const max = scale === '5.0' ? 5 : 4;
+    const nextGpa = Math.min(max, Number(draft.gpa) || 0);
+    setDraftGpaScale(scale);
+    setDraft(d => ({ ...d, gpa: nextGpa }));
+    setDraftGpaText(nextGpa ? nextGpa.toFixed(2) : '');
+  };
+
+  const apOffered = Math.max(0, Math.min(30, Number(draft.ap_offered) || 0));
+  const apTakenMax = Math.max(1, apOffered || 25);
+  const apTaken = Math.max(0, Math.min(apTakenMax, Number(draft.ap_taken) || 0));
+  const apPct = apOffered > 0 ? Math.min(100, Math.max(0, Math.round((apTaken / apOffered) * 100))) : 0;
+  const roles = Math.max(0, Math.min(10, Number(draft.leadership_roles) || 0));
+
+  const textInput: React.CSSProperties = {
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #e6edf8',
+    borderRadius: 12,
+    background: '#fff',
+    color: DASH_NAVY,
+    fontFamily: 'inherit',
+    fontSize: 14,
+    fontWeight: 800,
+    outline: 'none',
+    padding: '9px 10px',
+    minWidth: 0,
+  };
+  const tile: React.CSSProperties = {
+    minHeight: 204,
+    border: '1px solid #dbe7f8',
+    borderRadius: 18,
+    background: 'linear-gradient(180deg,#fff 0%,#fbfdff 100%)',
+    padding: '14px',
+    overflow: 'hidden',
+    minWidth: 0,
+    boxShadow: '0 2px 0 rgba(6,36,91,.025)',
+  };
+  const fieldShell: React.CSSProperties = {
+    border: '1px solid #e6edf8',
+    borderRadius: 13,
+    background: '#f8fbff',
+    padding: '8px',
+    minWidth: 0,
+  };
+  const label: React.CSSProperties = { color: '#9b9692', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0, marginBottom: 5 };
+  const iconBadge = (icon: string) => (
+    <span style={s({ width: 34, height: 34, borderRadius: 11, display: 'grid', placeItems: 'center', background: '#fff4a8', border: '1px solid #e9d74d', color: DASH_NAVY, fontSize: 14, flexShrink: 0 })}>
+      <i className={`fas ${icon}`}></i>
+    </span>
+  );
+  const tileHead = (icon: string, title: string) => (
+    <div style={s({ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11, minHeight: 34 })}>
+      <div style={s({ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 })}>
+        {iconBadge(icon)}
+        <h3 style={s({ margin: 0, color: DASH_NAVY, fontSize: 14, lineHeight: 1.05, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })}>{title}</h3>
+      </div>
+    </div>
+  );
+  const rangeStyle: React.CSSProperties = { width: '100%', accentColor: DASH_NAVY, margin: 0 };
+
+  const save = async () => {
+    setSaving(true);
+    setSaveState('idle');
+    try {
+      const normalized: AcademicProfile = {
+        ...draft,
+        gpa: Math.min(draftGpaScale === '5.0' ? 5 : 4, Math.max(0, Number(draft.gpa) || 0)),
+        sat: Math.min(1600, Math.max(0, Number(draft.sat) || 0)),
+        act: Math.min(36, Math.max(0, Number(draft.act) || 0)),
+        ap_offered: apOffered,
+        ap_taken: Math.min(apTaken, apOffered || apTakenMax),
+        ec_tier: Math.min(4, Math.max(1, Number(draft.ec_tier) || 4)),
+        leadership_roles: roles,
+        is_ed: false,
+        is_legacy: false,
+      };
+      await onSave(normalized, draftMajor, { gpaScale: draftGpaScale });
+      setDraft(normalized);
+      setSaveState('saved');
+      setTimeout(() => setSaveState('idle'), 2200);
+    } catch {
+      setSaveState('error');
+      setTimeout(() => setSaveState('idle'), 2600);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div style={s({ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20, marginBottom: 14 })}>
-      <div style={s({ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 })}>
+    <div style={s({ width: '100%', maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, marginBottom: 14 })}>
+      <div style={s({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 11 })}>
         <div>
           <div style={s({ fontSize: 14, fontWeight: 800, color: DASH_NAVY })}>Academic profile</div>
-          <div style={s({ fontSize: 11, color: 'var(--stone-400)', marginTop: 2 })}>Drives your score. Update whenever your numbers change.</div>
         </div>
-        <button onClick={onEdit} style={s({ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: DASH_NAVY, border: 'none', borderRadius: 8, color: '#fff', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer' })}>
-          <i className="fas fa-pen-to-square" style={{ fontSize: 10 }}></i> Edit
-        </button>
+        <div style={s({ display: 'flex', alignItems: 'center', gap: 10 })}>
+          {saveState === 'saved' && <span style={s({ color: '#0F8B63', fontSize: 11, fontWeight: 900 })}>Saved</span>}
+          {saveState === 'error' && <span style={s({ color: 'var(--red)', fontSize: 11, fontWeight: 900 })}>Save failed</span>}
+          <button onClick={save} disabled={saving} style={s({ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: DASH_NAVY, border: 'none', borderRadius: 10, color: '#fff', fontFamily: 'inherit', fontSize: 12, fontWeight: 850, cursor: saving ? 'default' : 'pointer', opacity: saving ? .72 : 1, boxShadow: '0 8px 18px rgba(6,36,91,.14)' })}>
+            <i className="fas fa-floppy-disk" style={{ fontSize: 11 }}></i> {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
-      <div style={s({ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 })}>
-        {cards.map(c => (
-          <div key={c.label} style={s({ position: 'relative', minHeight: 104, background: 'linear-gradient(180deg,#fff,var(--stone-50))', border: '1px solid var(--border-light)', borderRadius: 14, padding: 14, overflow: 'hidden', boxShadow: '0 1px 0 rgba(28,25,23,.03)' })}>
-            <div style={s({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 })}>
-              <div style={s({ fontSize: 10, fontWeight: 800, color: 'var(--stone-400)', textTransform: 'uppercase', letterSpacing: '.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })}>{c.label}</div>
-              <div style={s({ width: 28, height: 28, borderRadius: 9, background: c.bg, color: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 })}>
-                <i className={`fas ${c.icon}`}></i>
+
+      <div style={s({ display: 'grid', gridTemplateColumns: 'minmax(0,1.8fr) minmax(0,.82fr)', gap: 10, alignItems: 'stretch', minWidth: 0 })}>
+        <article style={s(tile)}>
+          {tileHead('fa-chart-line', 'Academic Scoring')}
+          <div style={s({ display: 'grid', gridTemplateColumns: 'minmax(0,.95fr) minmax(0,.7fr) minmax(0,.7fr)', gap: 8 })}>
+            <div style={s(fieldShell)}>
+              <div style={s(label)}>GPA</div>
+              <div style={s({ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 38px 38px', gap: 6, alignItems: 'center' })}>
+                <input type="text" inputMode="decimal" value={draftGpaText} onChange={e => updateGpa(e.target.value)} onBlur={() => setDraftGpaText(draft.gpa ? Number(draft.gpa).toFixed(2) : '')} placeholder={draftGpaScale === '5.0' ? '5.00' : '4.00'} style={s({ ...textInput, fontSize: 20, padding: '8px 10px' })} />
+                {['4.0', '5.0'].map(scale => (
+                  <button key={scale} type="button" onClick={() => changeGpaScale(scale)} style={s({ width: 38, height: 34, border: 'none', borderRadius: 999, background: draftGpaScale === scale ? DASH_NAVY : '#eef3fb', color: draftGpaScale === scale ? '#fff' : DASH_NAVY, fontFamily: 'inherit', fontSize: 10, fontWeight: 900, cursor: 'pointer' })}>{scale}</button>
+                ))}
               </div>
             </div>
-            <div style={s({ fontSize: c.value.length > 18 ? 14 : 19, fontWeight: 900, color: DASH_NAVY, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any })}>{c.value}</div>
-            {c.sub && <div style={s({ fontSize: 10, fontWeight: 600, color: 'var(--stone-400)', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })}>{c.sub}</div>}
+            <div style={s(fieldShell)}>
+              <div style={s(label)}>SAT</div>
+              <input type="text" inputMode="numeric" value={draft.sat || ''} onChange={e => setNum('sat', e.target.value, 0, 1600)} placeholder="1510" style={textInput} />
+            </div>
+            <div style={s(fieldShell)}>
+              <div style={s(label)}>ACT</div>
+              <input type="text" inputMode="numeric" value={draft.act || ''} onChange={e => setNum('act', e.target.value, 0, 36)} placeholder="34" style={textInput} />
+            </div>
+            <div style={s({ ...fieldShell, gridColumn: '1 / 3' })}>
+              <div style={s(label)}>Intended Major</div>
+              <select value={draftMajor} onChange={e => setDraftMajor(e.target.value)} style={s({ ...textInput, appearance: 'none' })}>
+                <option value="">Select...</option>
+                {POPULAR_MAJORS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div style={s(fieldShell)}>
+              <div style={s(label)}>Athlete</div>
+              <button type="button" onClick={() => setDraft(d => ({ ...d, is_athlete: !d.is_athlete }))} style={s({ width: '100%', height: 38, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, border: '1px solid #dce7f5', borderRadius: 999, background: '#f2f6fd', color: DASH_NAVY, padding: '0 8px', fontFamily: 'inherit', fontSize: 12, fontWeight: 900, cursor: 'pointer' })}>
+                <span style={s({ width: 30, height: 18, borderRadius: 999, background: draft.is_athlete ? 'var(--yellow)' : '#dbe3ef', position: 'relative', display: 'inline-block', flexShrink: 0 })}>
+                  <span style={s({ position: 'absolute', top: 3, left: draft.is_athlete ? 15 : 3, width: 12, height: 12, borderRadius: '50%', background: draft.is_athlete ? DASH_NAVY : '#fff', transition: 'left .15s' })} />
+                </span>
+                {draft.is_athlete ? 'On' : 'Off'}
+              </button>
+            </div>
+            <div style={s({ ...fieldShell, gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '64px minmax(0,1fr) 70px', gap: 10, alignItems: 'center' })}>
+                <div style={s({ ...label, marginBottom: 0 })}>AP / IB</div>
+                <div style={s({ position: 'relative', paddingTop: 20, minWidth: 0 })}>
+                  <span style={s({ position: 'absolute', left: `${apPct}%`, top: 0, transform: 'translateX(-50%)', minWidth: 24, height: 19, borderRadius: 999, background: DASH_NAVY, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 900 })}>{apTaken}</span>
+                  <input type="range" min={0} max={apTakenMax} value={apTaken} onChange={e => setDraft(d => ({ ...d, ap_taken: Math.min(Number(e.target.value), Number(d.ap_offered) || apTakenMax) }))} style={rangeStyle} />
+                </div>
+                <div>
+                  <div style={s({ ...label, marginBottom: 3, textAlign: 'center' })}>Offered</div>
+                  <input type="text" inputMode="numeric" value={apOffered || ''} onChange={e => setNum('ap_offered', e.target.value, 0, 30)} placeholder="20" style={s({ ...textInput, textAlign: 'center', padding: '8px 6px' })} />
+                </div>
+            </div>
           </div>
-        ))}
+        </article>
+
+        <article style={s(tile)}>
+          {tileHead('fa-trophy', 'Recognition')}
+          <div style={s({ display: 'grid', gap: 6 })}>
+            {[
+              [1, 'National / international'],
+              [2, 'State / regional leadership'],
+              [3, 'School-level leadership'],
+              [4, 'Member / volunteer'],
+            ].map(([tierValue, title]) => {
+              const active = draft.ec_tier === tierValue;
+              return (
+                <button key={tierValue} type="button" onClick={() => setDraft(d => ({ ...d, ec_tier: Number(tierValue) }))} style={s({ display: 'grid', gridTemplateColumns: '20px minmax(0,1fr)', alignItems: 'center', gap: 7, minHeight: 33, border: active ? '1px solid #8fa1c5' : '1px solid #e1e9f6', borderRadius: 12, background: active ? '#f6f9ff' : '#fff', boxShadow: active ? 'inset 0 0 0 1px rgba(6,36,91,.14)' : 'none', padding: '5px 8px', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer', minWidth: 0 })}>
+                  <span style={s({ width: 18, height: 18, borderRadius: '50%', border: active ? `6px solid ${DASH_NAVY}` : '3px solid #cbd7ea' })} />
+                  <span style={s({ minWidth: 0 })}>
+                    <span style={s({ display: 'block', color: DASH_NAVY, fontSize: 11, lineHeight: 1.05, fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })}>{title}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={s({ display: 'grid', gridTemplateColumns: '1fr', alignItems: 'end', gap: 8, marginTop: 9, paddingTop: 9, borderTop: '1px solid #e6edf8' })}>
+            <div>
+              <div style={s(label)}>Leadership Roles</div>
+              <div style={s({ display: 'grid', gridTemplateColumns: '1fr 42px', gap: 8, alignItems: 'center' })}>
+                <input type="range" min={0} max={10} value={roles} onChange={e => setDraft(d => ({ ...d, leadership_roles: Number(e.target.value) }))} style={rangeStyle} />
+                <div style={s({ height: 34, borderRadius: 10, display: 'grid', placeItems: 'center', background: '#f2f6fd', color: DASH_NAVY, fontSize: 15, fontWeight: 900 })}>{roles}</div>
+              </div>
+            </div>
+          </div>
+        </article>
       </div>
     </div>
   );
@@ -1226,8 +1446,9 @@ const btnPrimary: React.CSSProperties = { padding: '8px 16px', background: DASH_
 const btnSecondary: React.CSSProperties = { padding: '8px 16px', background: 'var(--card)', color: 'var(--stone-700)', border: '1px solid var(--border)', borderRadius: 8, fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer' };
 
 function EditAcademicModal({ academic, gpaScale, intendedMajor, onCancel, onSave }: { academic: AcademicProfile; gpaScale: string; intendedMajor: string; onCancel: () => void; onSave: (next: AcademicProfile, nextMajor: string) => Promise<void>; }) {
+  const gpaMax = gpaScale === '5.0' ? 5 : 4;
   const [draft, setDraft] = useState<AcademicProfile>(academic);
-  const [gpaDraft, setGpaDraft] = useState(academic.gpa ? Math.min(4, Number(academic.gpa)).toFixed(2) : '');
+  const [gpaDraft, setGpaDraft] = useState(academic.gpa ? Math.min(gpaMax, Number(academic.gpa)).toFixed(2) : '');
   const [draftMajor, setDraftMajor] = useState(intendedMajor);
   const [saving, setSaving] = useState(false);
   const handleNum = (k: keyof AcademicProfile, raw: string, min: number, max: number, integer = false) => {
@@ -1246,19 +1467,19 @@ function EditAcademicModal({ academic, gpaScale, intendedMajor, onCancel, onSave
       return;
     }
     const limited = cleaned.match(/^\d*(?:\.\d{0,2})?/)?.[0] ?? '';
-    const value = Math.min(4, parseFloat(limited) || 0);
-    const nextText = value >= 4 ? '4.00' : limited;
+    const value = Math.min(gpaMax, parseFloat(limited) || 0);
+    const nextText = value >= gpaMax ? gpaMax.toFixed(2) : limited;
     setGpaDraft(nextText);
     setDraft(d => ({ ...d, gpa: Math.round(value * 100) / 100 }));
   };
   const formatGpa = () => {
-    setGpaDraft(draft.gpa ? Math.min(4, Number(draft.gpa)).toFixed(2) : '');
+    setGpaDraft(draft.gpa ? Math.min(gpaMax, Number(draft.gpa)).toFixed(2) : '');
   };
   return (
     <Modal onClose={onCancel}>
       <div style={s({ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 })}><div><div style={s({ fontSize: 16, fontWeight: 900, color: DASH_NAVY })}>Edit academic profile</div><div style={s({ fontSize: 11, color: 'var(--stone-400)', marginTop: 2 })}>Fields that drive your admissions profile score.</div></div><ModalCloseButton onClick={onCancel} /></div>
       <div style={s({ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 })}>
-        <ModalField label="GPA (4.0)"><input type="text" inputMode="decimal" maxLength={4} value={gpaDraft} placeholder="4.00" onChange={e => handleGpa(e.target.value)} onBlur={formatGpa} style={inputStyle} /></ModalField>
+        <ModalField label={`GPA (${gpaScale})`}><input type="text" inputMode="decimal" maxLength={5} value={gpaDraft} placeholder={gpaMax.toFixed(2)} onChange={e => handleGpa(e.target.value)} onBlur={formatGpa} style={inputStyle} /></ModalField>
         <ModalField label="SAT"><input type="text" inputMode="numeric" maxLength={4} value={draft.sat || ''} placeholder="1600" onChange={e => handleNum('sat', e.target.value, 0, 1600, true)} style={inputStyle} /></ModalField>
         <ModalField label="ACT"><input type="text" inputMode="numeric" maxLength={2} value={draft.act || ''} placeholder="36" onChange={e => handleNum('act', e.target.value, 0, 36, true)} style={inputStyle} /></ModalField>
       </div>

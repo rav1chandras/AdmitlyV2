@@ -118,6 +118,13 @@ export default function SettingsPage() {
   const [deleteReason, setDeleteReason] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [navSearch, setNavSearch] = useState('');
+
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab && ['profile', 'academic', 'notifications', 'security', 'journey', 'danger'].includes(tab)) {
+      setActiveTab(tab as typeof activeTab);
+    }
+  }, []);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [journeyErrors, setJourneyErrors] = useState<Record<string, string>>({});
   // Security / Change Password

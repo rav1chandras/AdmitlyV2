@@ -514,13 +514,14 @@ export async function GET(request: NextRequest) {
           WHERE ${saveFilter.sql}
         `, saveFilter.params);
 
+        const essaySummaryFilter = buildDateWhere('ed.created_at', 1);
         const essaySummaryRes = await pool.query(`
           SELECT
             COUNT(*)::int AS essays,
             COUNT(*) FILTER (WHERE status = 'submitted')::int AS submitted_essays
           FROM essay_drafts ed
-          WHERE ${essayFilter.sql}
-        `, essayFilter.params);
+          WHERE ${essaySummaryFilter.sql}
+        `, essaySummaryFilter.params);
 
         return NextResponse.json({
           colleges: popularRes.rows,
