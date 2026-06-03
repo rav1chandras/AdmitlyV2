@@ -6,10 +6,22 @@ import { getPool } from '@/lib/db';
 import { ensureSchema, seedMockData } from '@/lib/db_schema';
 import { sendEmail } from '@/lib/email';
 import { isAdmin } from '@/lib/auth-helpers';
+import { sanitizePlainUserText } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
 const PLAN_SESSIONS: Record<string, number> = { 'Starter': 1, 'Essay Only': 2, 'Full Cycle': 5 };
+
+function sanitizeMessageRows(rows: any[]) {
+  return rows.map((row) => ({ ...row, body: sanitizePlainUserText(row.body) }));
+}
+
+function sanitizeThreadRows(rows: any[]) {
+  return rows.map((row) => ({
+    ...row,
+    last_message: sanitizePlainUserText(row.last_message),
+  }));
+}
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -180,7 +192,7 @@ export async function GET(request: NextRequest) {
           JOIN ep_counselors ec ON ec.id = a.counselor_id
           ORDER BY last_message_at DESC NULLS LAST
         `);
-        return NextResponse.json({ threads: threadsRes.rows });
+        return NextResponse.json({ threads: sanitizeThreadRows(threadsRes.rows) });
       } catch { return NextResponse.json({ threads: [] }); }
     }
 
@@ -195,7 +207,7 @@ export async function GET(request: NextRequest) {
       );
       // Mark as read
       await pool.query(`UPDATE ep_messages SET is_read = true WHERE assignment_id = $1`, [assignmentId]);
-      return NextResponse.json({ messages: messagesRes.rows });
+      return NextResponse.json({ messages: sanitizeMessageRows(messagesRes.rows) });
     }
 
     // ── Admin ↔ Counselor direct message threads ──
@@ -730,10 +742,17 @@ export async function GET(request: NextRequest) {
 
         // Combine and add PII flags
         const activities = [
-          ...messagesRes.rows.map((r: any) => ({ ...r, pii_flags: detectPII(r.content) })),
+          ...messagesRes.rows.map((r: any) => {
+            const content = sanitizePlainUserText(r.content);
+            return { ...r, content, pii_flags: detectPII(content) };
+          }),
           ...sessionsRes.rows.map((r: any) => ({ ...r, pii_flags: detectPII(r.content) })),
           ...actionsRes.rows.map((r: any) => ({ ...r, pii_flags: detectPII(r.content) })),
-          ...notesRes.rows.map((r: any) => ({ ...r, pii_flags: detectPII(r.content || r.title) })),
+          ...notesRes.rows.map((r: any) => {
+            const title = sanitizePlainUserText(r.title, 255);
+            const content = sanitizePlainUserText(r.content);
+            return { ...r, title, content, pii_flags: detectPII(content || title) };
+          }),
         ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         const stats = {
@@ -959,11 +978,12 @@ export async function POST(request: NextRequest) {
   // ── Send message to a thread (admin → assignment) ──
   if (body.action === 'send_message') {
     const { assignment_id, body: msgBody, sender_role } = body;
+    const messageBody = sanitizePlainUserText(msgBody);
     const r = await pool.query(
       `INSERT INTO ep_messages (assignment_id, sender_role, body) VALUES ($1, $2, $3) RETURNING *`,
-      [assignment_id, sender_role || 'counselor', msgBody]
+      [assignment_id, sender_role || 'counselor', messageBody]
     );
-    return NextResponse.json(r.rows[0]);
+    return NextResponse.json(sanitizeMessageRows(r.rows)[0]);
   }
 
   // ── Admin ↔ Counselor direct messaging ──

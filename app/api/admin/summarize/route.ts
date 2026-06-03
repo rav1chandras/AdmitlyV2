@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPool } from '@/lib/db';
 import { isAdmin } from '@/lib/auth-helpers';
+import { sanitizePlainUserText } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Build prompt
     const msgText = messages.map(m =>
-      `[${new Date(m.created_at).toLocaleDateString()}] ${m.sender_role === 'counselor' ? m.counselor_name : m.student_name}: ${m.body}`
+      `[${new Date(m.created_at).toLocaleDateString()}] ${m.sender_role === 'counselor' ? m.counselor_name : m.student_name}: ${sanitizePlainUserText(m.body)}`
     ).join('\n');
 
     const actionText = actions.map(a =>

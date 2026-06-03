@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getEssays, getEssayById, createEssay, updateEssay, deleteEssay } from '@/lib/db_essays';
 import { ensureSchema } from '@/lib/db_schema';
+import { sanitizeRichEssayHtml, wordCountFromHtml } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
@@ -151,7 +152,8 @@ export async function PATCH(request: NextRequest) {
       [!!shared_with_counselor, parseInt(id), userId]
     );
     if (!res.rows[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json(res.rows[0]);
+    const draftText = sanitizeRichEssayHtml(res.rows[0].draft_text);
+    return NextResponse.json({ ...res.rows[0], draft_text: draftText, word_count: wordCountFromHtml(draftText) });
   } catch (error) {
     console.error('[Essays PATCH]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

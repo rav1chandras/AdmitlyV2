@@ -5,6 +5,7 @@
  */
 
 import { Pool } from 'pg';
+import { sanitizeRichEssayHtml, wordCountFromHtml } from '@/lib/sanitize';
 
 // ── Reuse the same pool logic as db.ts ──────────────────────────────────────
 let pool: Pool | null = null;
@@ -57,6 +58,15 @@ export interface CreateEssayData {
 
 // ── CRUD ────────────────────────────────────────────────────────────────────
 
+function sanitizeEssayRow<T extends { draft_text?: unknown; word_count?: number }>(row: T): T {
+  const draftText = sanitizeRichEssayHtml(row.draft_text);
+  return {
+    ...row,
+    draft_text: draftText,
+    word_count: wordCountFromHtml(draftText),
+  };
+}
+
 export async function getEssays(userId: number): Promise<EssayDraft[]> {
   const db = getPool();
   const res = await db.query(
@@ -67,7 +77,7 @@ export async function getEssays(userId: number): Promise<EssayDraft[]> {
      ORDER BY ed.updated_at DESC`,
     [userId]
   );
-  return res.rows.map(r => ({
+  return res.rows.map(r => sanitizeEssayRow({
     ...r,
     // Prefer live college name from join; fall back to cached college_name
     college_name: r.college_name_live ?? r.college_name ?? null,
@@ -80,11 +90,13 @@ export async function getEssayById(id: number, userId: number): Promise<EssayDra
     'SELECT * FROM essay_drafts WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
-  return res.rows[0] ?? null;
+  return res.rows[0] ? sanitizeEssayRow(res.rows[0]) : null;
 }
 
 export async function createEssay(userId: number, data: CreateEssayData): Promise<EssayDraft | null> {
   const db = getPool();
+  const draftText = sanitizeRichEssayHtml(data.draft_text);
+  const wordCount = wordCountFromHtml(draftText);
   const res = await db.query(
     `INSERT INTO essay_drafts
        (user_id, college_id, college_name, essay_type, topic, draft_text,
@@ -98,8 +110,8 @@ export async function createEssay(userId: number, data: CreateEssayData): Promis
       data.college_name ?? null,
       data.essay_type,
       (data.topic || '').slice(0, 3000),
-      data.draft_text,
-      data.word_count,
+      draftText,
+      wordCount,
       data.prompt_source ?? 'Common App',
       data.audience ?? 'Admissions Officer',
       data.tone_chips ?? 'Reflective',
@@ -109,7 +121,7 @@ export async function createEssay(userId: number, data: CreateEssayData): Promis
       data.status ?? 'draft',
     ]
   );
-  return res.rows[0] ?? null;
+  return res.rows[0] ? sanitizeEssayRow(res.rows[0]) : null;
 }
 
 export async function updateEssay(
@@ -118,6 +130,8 @@ export async function updateEssay(
   data: Partial<CreateEssayData>
 ): Promise<EssayDraft | null> {
   const db = getPool();
+  const draftText = data.draft_text === undefined ? undefined : sanitizeRichEssayHtml(data.draft_text);
+  const wordCount = draftText === undefined ? data.word_count : wordCountFromHtml(draftText);
   const res = await db.query(
     `UPDATE essay_drafts SET
        college_id       = COALESCE($1, college_id),
@@ -141,8 +155,8 @@ export async function updateEssay(
       data.college_name,
       data.essay_type,
       data.topic === undefined ? undefined : (data.topic || '').slice(0, 3000),
-      data.draft_text,
-      data.word_count,
+      draftText,
+      wordCount,
       data.prompt_source,
       data.audience,
       data.tone_chips,
@@ -154,7 +168,7 @@ export async function updateEssay(
       userId,
     ]
   );
-  return res.rows[0] ?? null;
+  return res.rows[0] ? sanitizeEssayRow(res.rows[0]) : null;
 }
 
 export async function deleteEssay(id: number, userId: number): Promise<boolean> {

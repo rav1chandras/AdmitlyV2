@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Pool } from 'pg';
 import { sendEmail } from '@/lib/email';
+import { resolveStudentAssignment } from '@/lib/expert-portal-auth';
+import { sanitizePlainUserText, sanitizeRichEssayHtml, wordCountFromHtml } from '@/lib/sanitize';
 
 let pool: Pool | null = null;
 function db(): Pool {
@@ -99,6 +101,25 @@ async function authorizeRowAccess(
   return { ...ctx, row };
 }
 
+function sanitizeMessageRows(rows: any[]) {
+  return rows.map((row) => ({ ...row, body: sanitizePlainUserText(row.body) }));
+}
+
+function sanitizeNoteRows(rows: any[]) {
+  return rows.map((row) => ({
+    ...row,
+    title: sanitizePlainUserText(row.title, 255),
+    content: sanitizePlainUserText(row.content),
+  }));
+}
+
+function sanitizeEssayRows(rows: any[]) {
+  return rows.map((row) => {
+    const draftText = sanitizeRichEssayHtml(row.draft_text);
+    return { ...row, draft_text: draftText, word_count: wordCountFromHtml(draftText) };
+  });
+}
+
 // ── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -185,13 +206,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ role: 'student', counselor: null, assignment: null, assignments: [], needsAssignment });
     }
 
-    // Entity queries: use assignment_id param if provided, else first assignment
-    const activeAid = assignmentId ? parseInt(assignmentId) : assignRes.rows[0].assignment_id;
+    // Entity queries: use only an assignment proven to belong to this student.
+    const resolvedAssignment = resolveStudentAssignment(assignRes.rows, assignmentId);
+    if (!resolvedAssignment.ok) {
+      return NextResponse.json({ error: resolvedAssignment.error }, { status: resolvedAssignment.status });
+    }
+    const activeAid = resolvedAssignment.assignmentId;
 
     if (entity) {
       if (entity === 'messages') {
         const r = await db().query('SELECT * FROM ep_messages WHERE assignment_id=$1 ORDER BY created_at', [activeAid]);
-        return NextResponse.json(r.rows);
+        return NextResponse.json(sanitizeMessageRows(r.rows));
       }
       if (entity === 'sessions') {
         const r = await db().query('SELECT * FROM ep_sessions WHERE assignment_id=$1 ORDER BY session_date DESC', [activeAid]);
@@ -203,11 +228,11 @@ export async function GET(req: NextRequest) {
       }
       if (entity === 'notes') {
         const r = await db().query('SELECT * FROM ep_notes WHERE assignment_id=$1 ORDER BY is_pinned DESC, updated_at DESC', [activeAid]);
-        return NextResponse.json(r.rows);
+        return NextResponse.json(sanitizeNoteRows(r.rows));
       }
     }
 
-    const primary = assignRes.rows[0];
+    const primary = resolvedAssignment.assignment;
 
     // Check if student has a pending premium payment not covered by any valid assignment
     let needsAssignment = false;
@@ -311,7 +336,7 @@ export async function GET(req: NextRequest) {
       profile: profileRes.rows[0] ?? null,
       journey: journeyRes.rows[0] ? { activities: journeyRes.rows[0].activities ?? [], honors: journeyRes.rows[0].honors ?? [], experiences: journeyRes.rows[0].experiences ?? [], identity: journeyRes.rows[0].identity ?? {}, goals: journeyRes.rows[0].goals ?? {} } : null,
       colleges: collegesRes.rows,
-      essays: essaysRes.rows,
+      essays: sanitizeEssayRows(essaysRes.rows),
       scores: scoresRes.rows,
     });
   }
@@ -324,7 +349,7 @@ export async function GET(req: NextRequest) {
 
     if (entity === 'messages') {
       const r = await db().query('SELECT * FROM ep_messages WHERE assignment_id=$1 ORDER BY created_at', [aid]);
-      return NextResponse.json(r.rows);
+      return NextResponse.json(sanitizeMessageRows(r.rows));
     }
     if (entity === 'sessions') {
       const r = await db().query('SELECT * FROM ep_sessions WHERE assignment_id=$1 ORDER BY session_date DESC', [aid]);
@@ -336,7 +361,7 @@ export async function GET(req: NextRequest) {
     }
     if (entity === 'notes') {
       const r = await db().query('SELECT * FROM ep_notes WHERE assignment_id=$1 ORDER BY is_pinned DESC, updated_at DESC', [aid]);
-      return NextResponse.json(r.rows);
+      return NextResponse.json(sanitizeNoteRows(r.rows));
     }
     if (entity === 'shared_essays') {
       // Ensure assignment_id column exists
@@ -355,7 +380,7 @@ export async function GET(req: NextRequest) {
          ORDER BY updated_at DESC`,
         [assignment.student_id, aid]
       );
-      return NextResponse.json(r.rows);
+      return NextResponse.json(sanitizeEssayRows(r.rows));
     }
   }
 
@@ -444,9 +469,10 @@ export async function POST(req: NextRequest) {
     // request body. Previously a student could post a message with
     // sender_role='counselor' and impersonate the counselor.
     const senderRole = ctx.actorRole;
+    const messageBody = sanitizePlainUserText(data.body);
     const r = await db().query(
       'INSERT INTO ep_messages (assignment_id, sender_role, body) VALUES ($1, $2, $3) RETURNING *',
-      [ctx.assignment.id, senderRole, data.body]
+      [ctx.assignment.id, senderRole, messageBody]
     );
     // Queue notification for digest email (batched every 15 min)
     try {
@@ -463,11 +489,11 @@ export async function POST(req: NextRequest) {
         const recipientId = senderRole === 'counselor' ? a.student_id : a.counselor_user_id;
         await db().query(
           `INSERT INTO notification_queue (user_id, type, data) VALUES ($1, 'message', $2)`,
-          [recipientId, JSON.stringify({ sender_name: senderRole === 'counselor' ? a.counselor_name : a.student_name, sender_role: senderRole, preview: (data.body || '').slice(0, 200), assignment_id: ctx.assignment.id })]
+          [recipientId, JSON.stringify({ sender_name: senderRole === 'counselor' ? a.counselor_name : a.student_name, sender_role: senderRole, preview: messageBody.slice(0, 200), assignment_id: ctx.assignment.id })]
         );
       }
     } catch {}
-    return NextResponse.json(r.rows[0]);
+    return NextResponse.json(sanitizeMessageRows(r.rows)[0]);
   }
 
   if (entity === 'action') {
@@ -502,11 +528,13 @@ export async function POST(req: NextRequest) {
     if (ctx.actorRole !== 'counselor') {
       return NextResponse.json({ error: 'Only counselors can create notes' }, { status: 403 });
     }
+    const title = sanitizePlainUserText(data.title || 'New Note', 255);
+    const content = sanitizePlainUserText(data.content || '');
     const r = await db().query(
       'INSERT INTO ep_notes (assignment_id, title, content, author_role, category) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [ctx.assignment.id, data.title || 'New Note', data.content || '', 'counselor', data.category || 'Session Notes']
+      [ctx.assignment.id, title || 'New Note', content, 'counselor', data.category || 'Session Notes']
     );
-    return NextResponse.json(r.rows[0]);
+    return NextResponse.json(sanitizeNoteRows(r.rows)[0]);
   }
 
   if (entity === 'session') {
@@ -560,9 +588,9 @@ export async function POST(req: NextRequest) {
     const cName = cNameRes.rows[0]?.display_name || '';
     const cShort = cName.split(' ').length > 1 ? `${cName.split(' ')[0]} ${cName.split(' ').slice(-1)[0][0]}.` : cName;
 
-    // Enforce 1000 character limit
-    const essayText = (data.draft_text || '').slice(0, 1000);
-    const wordCount = essayText.trim().split(/\s+/).filter(Boolean).length;
+    // Enforce 1000 character limit after sanitization.
+    const essayText = sanitizeRichEssayHtml(data.draft_text).slice(0, 1000);
+    const wordCount = wordCountFromHtml(essayText);
     const r = await db().query(
       `INSERT INTO essay_drafts (user_id, essay_type, college_name, topic, draft_text, word_count, expert_tag, source_essay_id, shared_with_counselor, assignment_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9) RETURNING *`,
@@ -578,7 +606,7 @@ export async function POST(req: NextRequest) {
         ctx.assignment.id,
       ]
     );
-    return NextResponse.json(r.rows[0]);
+    return NextResponse.json(sanitizeEssayRows(r.rows)[0]);
   }
 
   return NextResponse.json({ error: 'Unknown entity' }, { status: 400 });
@@ -642,9 +670,9 @@ export async function PATCH(req: NextRequest) {
     const vals: any[] = [];
     let i = 1;
     if (data.draft_text !== undefined) {
-      const txt = (data.draft_text || '').slice(0, 1000);
+      const txt = sanitizeRichEssayHtml(data.draft_text).slice(0, 1000);
       sets.push(`draft_text=$${i++}`); vals.push(txt);
-      const wc = txt.trim().split(/\s+/).filter(Boolean).length;
+      const wc = wordCountFromHtml(txt);
       sets.push(`word_count=$${i++}`); vals.push(wc);
     }
     if (data.topic !== undefined) { sets.push(`topic=$${i++}`); vals.push(data.topic); }
@@ -652,7 +680,7 @@ export async function PATCH(req: NextRequest) {
       sets.push(`updated_at=CURRENT_TIMESTAMP`);
       vals.push(id);
       const r = await db().query(`UPDATE essay_drafts SET ${sets.join(',')} WHERE id=$${i} RETURNING *`, vals);
-      return NextResponse.json(r.rows[0]);
+      return NextResponse.json(sanitizeEssayRows(r.rows)[0]);
     }
   }
 
@@ -670,13 +698,13 @@ export async function PATCH(req: NextRequest) {
     const sets: string[] = [];
     const vals: any[] = [];
     let i = 1;
-    if (data.title !== undefined) { sets.push(`title=$${i++}`); vals.push(data.title); }
-    if (data.content !== undefined) { sets.push(`content=$${i++}`); vals.push(data.content); }
+    if (data.title !== undefined) { sets.push(`title=$${i++}`); vals.push(sanitizePlainUserText(data.title, 255)); }
+    if (data.content !== undefined) { sets.push(`content=$${i++}`); vals.push(sanitizePlainUserText(data.content)); }
     if (data.is_pinned !== undefined) { sets.push(`is_pinned=$${i++}`); vals.push(data.is_pinned); }
     sets.push(`updated_at=CURRENT_TIMESTAMP`);
     vals.push(id);
     const r = await db().query(`UPDATE ep_notes SET ${sets.join(',')} WHERE id=$${i} RETURNING *`, vals);
-    return NextResponse.json(r.rows[0]);
+    return NextResponse.json(sanitizeNoteRows(r.rows)[0]);
   }
 
   if (entity === 'session' && id) {
