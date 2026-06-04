@@ -17,7 +17,7 @@ describe('extractHook', () => {
   });
 
   it('returns the first 3 sentences if they meet the word minimum', () => {
-    const e = 'This is the first sentence with some words in it. This is the second sentence which also has many words. Third sentence here also with content and length. Fourth sentence should NOT appear.';
+    const e = 'This is the first sentence with some words in it. This is the second sentence which also has many words. Third sentence here also with content, length, detail, and enough extra context. Fourth sentence should NOT appear.';
     const hook = extractHook(e);
     expect(hook).toContain('first sentence');
     expect(hook).toContain('second sentence');
