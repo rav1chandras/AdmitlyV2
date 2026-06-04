@@ -3624,7 +3624,12 @@ export default function AdminPage() {
                                         // require typing PROD in production.
                                         const performRefund = async () => {
                                           try {
-                                            await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'refund_payment',payment_id:p.id,reason:refundReason})});
+                                            const res = await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'refund_payment',payment_id:p.id,reason:refundReason})});
+                                            if (!res.ok) {
+                                              const d = await res.json().catch(()=>({}));
+                                              alert(d.error || 'Refund failed');
+                                              return;
+                                            }
                                             setPaymentData((prev:any)=>({...prev,payments:prev.payments.map((pp:any)=>pp.id===p.id?{...pp,status:'refunded'}:pp)}));
                                             setRefundingId(null);
                                           } catch(e) { console.error('Refund failed:',e); }
@@ -4110,11 +4115,23 @@ export default function AdminPage() {
                   <span style={ss({fontSize:13,fontWeight:700,color:'#92400e',flex:1})}>{earningsData.counselors.filter((c:any)=>c.owed_cents>0).length} counselor{earningsData.counselors.filter((c:any)=>c.owed_cents>0).length!==1?'s':''} with outstanding balance totaling ${((earningsData.totals.owed)/100).toFixed(0)}</span>
                   <button onClick={async()=>{
                     if(!confirm(`Pay all outstanding balances ($${((earningsData.totals.owed)/100).toFixed(0)})?`)) return;
-                    for(const c of earningsData.counselors.filter((cc:any)=>cc.owed_cents>0)){
-                      await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'pay_counselor',counselor_id:c.id,amount_cents:c.owed_cents,hours:c.hours_worked,notes:'Bulk payout — all outstanding'})});
-                    }
-                    setEarningsData(null);
-                    fetch('/api/admin?view=earnings',{cache:'no-store'}).then(r=>r.json()).then(d=>setEarningsData(d));
+                    requireProdConfirm({
+                      title: 'Confirm counselor payouts',
+                      body: `You're about to pay all outstanding counselor balances totaling $${((earningsData.totals.owed)/100).toFixed(0)}.`,
+                      confirmLabel: 'Pay all',
+                      action: async () => {
+                        for(const c of earningsData.counselors.filter((cc:any)=>cc.owed_cents>0)){
+                          const res = await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'pay_counselor',counselor_id:c.id,amount_cents:c.owed_cents,hours:c.hours_worked,notes:'Bulk payout — all outstanding'})});
+                          if (!res.ok) {
+                            const d = await res.json().catch(()=>({}));
+                            alert(d.error || 'Payout failed');
+                            return;
+                          }
+                        }
+                        setEarningsData(null);
+                        fetch('/api/admin?view=earnings',{cache:'no-store'}).then(r=>r.json()).then(d=>setEarningsData(d));
+                      }
+                    });
                   }}
                   style={ss({padding:'7px 16px',borderRadius:8,border:'none',background:'var(--stone-900)',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit'})}>Pay all outstanding</button>
                 </div>
@@ -5180,19 +5197,38 @@ export default function AdminPage() {
                     hours: a.hours || 0,
                   }));
                   const method = payModalMethod==='stripe_connect'&&payModalCounselor.stripe_connect_account_id?'stripe_connect':'offline';
-                  try {
-                    await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-                      action:'pay_counselor_plans',
-                      counselor_id:payModalCounselor.id,
-                      method,
-                      notes:payModalNotes||'',
-                      plans,
-                    })});
-                    setPayModalCounselor(null);setPayModalProcessing(false);
-                    setSelectedPayPlans(p=>({...p,[payModalCounselor.id]:[]}));
-                    setEarningsData(null);
-                    fetch('/api/admin?view=earnings',{cache:'no-store'}).then(r=>r.json()).then(d=>setEarningsData(d));
-                  } catch { setPayModalProcessing(false); alert('Payment failed'); }
+                  const performPayment = async () => {
+                    setPayModalProcessing(true);
+                    try {
+                      const res = await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+                        action:'pay_counselor_plans',
+                        counselor_id:payModalCounselor.id,
+                        method,
+                        notes:payModalNotes||'',
+                        plans,
+                      })});
+                      if (!res.ok) {
+                        const d = await res.json().catch(()=>({}));
+                        alert(d.error || 'Payment failed');
+                        setPayModalProcessing(false);
+                        return;
+                      }
+                      setPayModalCounselor(null);setPayModalProcessing(false);
+                      setSelectedPayPlans(p=>({...p,[payModalCounselor.id]:[]}));
+                      setEarningsData(null);
+                      fetch('/api/admin?view=earnings',{cache:'no-store'}).then(r=>r.json()).then(d=>setEarningsData(d));
+                    } catch { setPayModalProcessing(false); alert('Payment failed'); }
+                  };
+                  requireProdConfirm({
+                    title: 'Confirm counselor payout',
+                    body: `You're about to ${method==='stripe_connect'?'send':'record'} a counselor payout of $${((overrideCents||0)/100).toFixed(2)}.`,
+                    confirmLabel: 'Pay',
+                    action: performPayment,
+                  });
+                  if (!IS_PROD) {
+                    return;
+                  }
+                  setPayModalProcessing(false);
                 }} style={ss({padding:'8px 24px',borderRadius:10,border:'none',background:'var(--stone-900)',color:'#fff',fontSize:12,fontWeight:800,cursor:payModalProcessing?'wait':'pointer',fontFamily:'inherit',opacity:payModalProcessing?.5:1})}>
                   {payModalProcessing?'Processing...':`Pay $${payModalAmountOverride||'0'}`}
                 </button>

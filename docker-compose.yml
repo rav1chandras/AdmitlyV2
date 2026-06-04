@@ -36,6 +36,7 @@ services:
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS=true
+        - NEXT_PUBLIC_ENV_NAME=local
     container_name: college_planner_app
     restart: unless-stopped
     ports:
@@ -49,6 +50,7 @@ services:
       POSTGRES_URL:    "postgresql://admitly:admitly@postgres:5432/college_planner"
       NEXTAUTH_URL:    "http://localhost:3000"
       NODE_ENV:        production
+      NEXT_PUBLIC_ENV_NAME: "local"
       # ── Demo Accounts (dev/staging only) ──────────────────
       ENABLE_DEMO_ACCOUNTS: "true"
     depends_on:

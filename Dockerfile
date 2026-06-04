@@ -33,6 +33,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS
 ENV NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS=$NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS
+ARG NEXT_PUBLIC_ENV_NAME
+ENV NEXT_PUBLIC_ENV_NAME=$NEXT_PUBLIC_ENV_NAME
 # Dummy values for build time — real values injected by docker-compose at runtime
 ENV POSTGRES_URL="postgresql://build:build@localhost:5432/build"
 ENV NEXTAUTH_SECRET="build-time-placeholder-not-used-at-runtime"

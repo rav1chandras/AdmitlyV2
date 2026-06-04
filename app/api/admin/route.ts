@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getAdminStats, getAdminStudents, getLlmUsage, getDailyActivity } from '@/lib/db_admin';
 import { getPool } from '@/lib/db';
-import { ensureSchema, seedMockData } from '@/lib/db_schema';
+import { ensureSchema } from '@/lib/db_schema';
 import { sendEmail } from '@/lib/email';
 import { isAdmin } from '@/lib/auth-helpers';
 import { sanitizePlainUserText } from '@/lib/sanitize';
@@ -16,11 +16,27 @@ function sanitizeMessageRows(rows: any[]) {
   return rows.map((row) => ({ ...row, body: sanitizePlainUserText(row.body) }));
 }
 
+function sanitizeAdminMessageRows(rows: any[]) {
+  return rows.map((row) => ({ ...row, body: sanitizePlainUserText(row.body) }));
+}
+
 function sanitizeThreadRows(rows: any[]) {
   return rows.map((row) => ({
     ...row,
     last_message: sanitizePlainUserText(row.last_message),
   }));
+}
+
+function sanitizeAdminThreadRows(rows: any[]) {
+  return rows.map((row) => ({
+    ...row,
+    last_message: sanitizePlainUserText(row.last_message),
+  }));
+}
+
+function parsePositiveInt(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+  return Number.isInteger(n) && n > 0 ? n : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -34,7 +50,6 @@ export async function GET(request: NextRequest) {
 
   try {
     await ensureSchema();
-    await seedMockData();
 
     if (view === 'overview') {
       const [stats, activity] = await Promise.all([
@@ -220,26 +235,27 @@ export async function GET(request: NextRequest) {
           WHERE u.role IN ('counselor', 'pending_counselor')
           ORDER BY last_message_at DESC NULLS LAST, u.name ASC
         `);
-        return NextResponse.json({ threads: res.rows });
+        return NextResponse.json({ threads: sanitizeAdminThreadRows(res.rows) });
       } catch { return NextResponse.json({ threads: [] }); }
     }
 
     // ── Admin ↔ Counselor thread messages ──
     if (view === 'admin_thread_messages') {
       const counselorUserId = searchParams.get('counselor_user_id');
-      if (!counselorUserId) return NextResponse.json({ error: 'Missing counselor_user_id' }, { status: 400 });
+      const counselorId = parsePositiveInt(counselorUserId);
+      if (!counselorId) return NextResponse.json({ error: 'Missing counselor_user_id' }, { status: 400 });
       try {
         const pool = getPool();
         const res = await pool.query(
           `SELECT id, sender_role, body, is_read, created_at FROM admin_messages WHERE counselor_user_id = $1 ORDER BY created_at ASC`,
-          [counselorUserId]
+          [counselorId]
         );
         // Mark counselor messages as read
         await pool.query(
           `UPDATE admin_messages SET is_read = true WHERE counselor_user_id = $1 AND sender_role = 'counselor' AND is_read = false`,
-          [counselorUserId]
+          [counselorId]
         );
-        return NextResponse.json({ messages: res.rows });
+        return NextResponse.json({ messages: sanitizeAdminMessageRows(res.rows) });
       } catch { return NextResponse.json({ messages: [] }); }
     }
 
@@ -978,23 +994,32 @@ export async function POST(request: NextRequest) {
   // ── Admin ↔ Counselor direct messaging ──
   if (body.action === 'admin_msg_send') {
     const { counselor_user_id, message, broadcast_ids } = body;
+    const messageBody = sanitizePlainUserText(message);
+    if (!messageBody.trim()) {
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    }
     // Broadcast: send to multiple counselors
     if (broadcast_ids && Array.isArray(broadcast_ids) && broadcast_ids.length > 0) {
+      let sent = 0;
       for (const cid of broadcast_ids) {
+        const counselorUserId = parsePositiveInt(cid);
+        if (!counselorUserId) continue;
         await pool.query(
           `INSERT INTO admin_messages (counselor_user_id, sender_role, body) VALUES ($1, 'admin', $2)`,
-          [cid, message]
+          [counselorUserId, messageBody]
         );
+        sent++;
       }
-      return NextResponse.json({ ok: true, sent: broadcast_ids.length });
+      return NextResponse.json({ ok: true, sent });
     }
     // Single message
-    if (!counselor_user_id || !message) return NextResponse.json({ error: 'Missing counselor_user_id or message' }, { status: 400 });
+    const counselorUserId = parsePositiveInt(counselor_user_id);
+    if (!counselorUserId) return NextResponse.json({ error: 'Missing counselor_user_id or message' }, { status: 400 });
     const r = await pool.query(
       `INSERT INTO admin_messages (counselor_user_id, sender_role, body) VALUES ($1, 'admin', $2) RETURNING *`,
-      [counselor_user_id, message]
+      [counselorUserId, messageBody]
     );
-    return NextResponse.json(r.rows[0]);
+    return NextResponse.json(sanitizeAdminMessageRows(r.rows)[0]);
   }
 
   if (body.action === 'admin_msg_mark_read') {
@@ -1057,11 +1082,20 @@ export async function POST(request: NextRequest) {
   if (body.action === 'toggle_lock') {
     const { student_id, locked } = body;
     const pool = getPool();
-    await pool.query('UPDATE users SET is_locked = $1 WHERE id = $2', [!!locked, student_id]);
+    const studentId = parsePositiveInt(student_id);
+    if (!studentId) return NextResponse.json({ error: 'Invalid student_id' }, { status: 400 });
+    const target = await pool.query('SELECT id, email, name, role FROM users WHERE id=$1', [studentId]);
+    if (!target.rows[0]) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (target.rows[0].role !== 'student') {
+      return NextResponse.json({ error: 'Lock action is only allowed for students' }, { status: 400 });
+    }
+    if (String(session.user.id || '') === String(studentId)) {
+      return NextResponse.json({ error: 'You cannot lock your own account' }, { status: 403 });
+    }
+    await pool.query('UPDATE users SET is_locked = $1 WHERE id = $2', [!!locked, studentId]);
     if (locked) {
       try {
-        const u = await pool.query('SELECT email, name FROM users WHERE id=$1', [student_id]);
-        if (u.rows[0]) sendEmail.accountLocked({ to: u.rows[0].email, name: u.rows[0].name }).catch(() => {});
+        if (target.rows[0]) sendEmail.accountLocked({ to: target.rows[0].email, name: target.rows[0].name }).catch(() => {});
       } catch {}
     }
     return NextResponse.json({ ok: true, locked: !!locked });
@@ -1596,7 +1630,7 @@ export async function POST(request: NextRequest) {
                 console.log(`[Admin] Payment already refunded for student ${body.student_id}`);
               } else {
                 console.error(`[Admin] Stripe refund failed:`, refundErr.message);
-                refundStatus = 'refund_failed';
+                refundStatus = 'failed';
               }
             }
           } else {
@@ -1605,7 +1639,7 @@ export async function POST(request: NextRequest) {
           }
         } catch (stripeErr: any) {
           console.error(`[Admin] Stripe error:`, stripeErr.message);
-          refundStatus = 'refund_failed';
+          refundStatus = 'failed';
         }
       }
     }
@@ -1712,23 +1746,70 @@ export async function POST(request: NextRequest) {
       const { rows } = await pool.query(`SELECT * FROM payments WHERE id = $1`, [body.payment_id]);
       if (!rows[0]) return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
       const payment = rows[0];
+      const isAdminGrant = payment.amount_cents <= 0 || String(payment.stripe_session_id || '').startsWith('admin_grant_');
+      const isOfflineRefund = body.method === 'offline';
+      let stripeRefundId: string | null = null;
 
       // Try Stripe refund if we have a real Stripe session ID (not admin grants)
-      if (process.env.STRIPE_SECRET_KEY && payment.stripe_session_id && !payment.stripe_session_id.startsWith('admin_grant_')) {
+      if (!isAdminGrant && !isOfflineRefund) {
+        if (!process.env.STRIPE_SECRET_KEY) {
+          return NextResponse.json(
+            { error: 'Stripe is not configured. Use an explicit offline refund path if this was refunded outside Stripe.' },
+            { status: 503 }
+          );
+        }
+        if (!payment.stripe_session_id) {
+          return NextResponse.json(
+            { error: 'Payment has no Stripe session. Use an explicit offline refund path if this was refunded outside Stripe.' },
+            { status: 409 }
+          );
+        }
         try {
           const Stripe = (await import('stripe')).default;
           const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
           const session = await stripe.checkout.sessions.retrieve(payment.stripe_session_id);
           if (session.payment_intent) {
-            await stripe.refunds.create({ payment_intent: session.payment_intent as string, reason: 'requested_by_customer' });
+            const refund = await stripe.refunds.create({ payment_intent: session.payment_intent as string, reason: 'requested_by_customer' });
+            stripeRefundId = refund.id;
+          } else {
+            return NextResponse.json({ error: 'Stripe payment intent not found; refund was not recorded.' }, { status: 409 });
           }
         } catch (stripeErr: any) {
-          console.error('[Admin] Stripe refund failed:', stripeErr.message);
+          if (stripeErr.message?.includes('already been refunded') || stripeErr.code === 'charge_already_refunded') {
+            stripeRefundId = 'already_refunded';
+          } else {
+            console.error('[Admin] Stripe refund failed:', stripeErr.message);
+            await pool.query(
+              `UPDATE payments
+               SET status = 'failed',
+                   metadata = COALESCE(metadata::jsonb, '{}'::jsonb) || $1::jsonb,
+                   updated_at = NOW()
+               WHERE id = $2`,
+              [JSON.stringify({ refund_failed_at: new Date().toISOString(), refund_error: stripeErr.message || 'Stripe refund failed' }), body.payment_id]
+            ).catch(() => {});
+            return NextResponse.json({ error: 'Stripe refund failed; payment was not marked refunded.', details: stripeErr.message }, { status: 502 });
+          }
         }
       }
 
       // Update payment status
-      await pool.query(`UPDATE payments SET status = 'refunded', updated_at = NOW() WHERE id = $1`, [body.payment_id]);
+      await pool.query(
+        `UPDATE payments
+         SET status = 'refunded',
+             metadata = COALESCE(metadata::jsonb, '{}'::jsonb) || $1::jsonb,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [
+          JSON.stringify({
+            refund_id: stripeRefundId || (isOfflineRefund ? 'offline' : 'admin_grant'),
+            refund_method: stripeRefundId ? 'stripe' : (isOfflineRefund ? 'offline' : 'admin_grant'),
+            refund_reason: body.reason || null,
+            refunded_by: session.user.email || null,
+            refunded_at: new Date().toISOString(),
+          }),
+          body.payment_id,
+        ]
+      );
 
       // Downgrade user based on plan type
       if (payment.user_id) {
@@ -1913,9 +1994,12 @@ export async function POST(request: NextRequest) {
 
       // Try Stripe Connect transfer if counselor has connected account
       let stripeTransferId = null;
-      let paymentMethod = body.notes?.split(':')[0] || 'manual';
+      let paymentMethod = body.method === 'offline' ? 'offline' : 'manual';
 
-      if (cRows[0].stripe_connect_account_id && process.env.STRIPE_SECRET_KEY) {
+      if (cRows[0].stripe_connect_account_id && body.method !== 'offline') {
+        if (!process.env.STRIPE_SECRET_KEY) {
+          return NextResponse.json({ error: 'STRIPE_SECRET_KEY not set; choose offline payout to record a manual payment.' }, { status: 503 });
+        }
         try {
           const Stripe = (await import('stripe')).default;
           const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -1936,7 +2020,7 @@ export async function POST(request: NextRequest) {
           console.log(`[Admin] Stripe transfer ${transfer.id} created for counselor ${cRows[0].display_name}: $${(amount/100).toFixed(2)}`);
         } catch (stripeErr: any) {
           console.error(`[Admin] Stripe transfer failed:`, stripeErr.message);
-          // Fall through to manual recording — don't fail the whole operation
+          return NextResponse.json({ error: 'Stripe transfer failed; payout was not recorded as paid.', details: stripeErr.message }, { status: 502 });
         }
       }
 
@@ -1983,9 +2067,18 @@ export async function POST(request: NextRequest) {
       const totalAmount = body.plans.reduce((s: number, p: any) => s + (p.amount_cents || 0), 0);
       const method = body.method || 'offline';
       const userNotes = body.notes || '';
+      if (totalAmount <= 0) {
+        return NextResponse.json({ error: 'Invalid payout amount' }, { status: 400 });
+      }
 
       let stripeTransferId: string | null = null;
-      if (method === 'stripe_connect' && cRows[0].stripe_connect_account_id && process.env.STRIPE_SECRET_KEY) {
+      if (method === 'stripe_connect') {
+        if (!cRows[0].stripe_connect_account_id) {
+          return NextResponse.json({ error: 'Counselor has not connected Stripe. Choose offline payout to record a manual payment.' }, { status: 400 });
+        }
+        if (!process.env.STRIPE_SECRET_KEY) {
+          return NextResponse.json({ error: 'STRIPE_SECRET_KEY not set. Choose offline payout to record a manual payment.' }, { status: 503 });
+        }
         try {
           const Stripe = (await import('stripe')).default;
           const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -1999,6 +2092,7 @@ export async function POST(request: NextRequest) {
           stripeTransferId = transfer.id;
         } catch (stripeErr: any) {
           console.error(`[Admin] Stripe transfer failed:`, stripeErr.message);
+          return NextResponse.json({ error: 'Stripe transfer failed; payout was not recorded as paid.', details: stripeErr.message }, { status: 502 });
         }
       }
 
@@ -2177,19 +2271,43 @@ export async function DELETE(request: NextRequest) {
   }
 
   if (body.action === 'delete_user' && body.student_id) {
-    const uid = parseInt(body.student_id);
-    // Delete all user content first (most have ON DELETE CASCADE but be explicit)
-    await pool.query('DELETE FROM essay_drafts      WHERE user_id = $1', [uid]);
-    await pool.query('DELETE FROM colleges          WHERE user_id = $1', [uid]);
-    await pool.query('DELETE FROM llm_usage         WHERE user_id = $1', [uid]);
-    await pool.query('DELETE FROM student_settings  WHERE user_id = $1', [uid]);
-    await pool.query('DELETE FROM profiles          WHERE user_id = $1', [uid]);
-    await pool.query('DELETE FROM ep_assignments    WHERE student_id = $1', [uid]);
-    await pool.query('DELETE FROM payments          WHERE user_id = $1', [uid]);
-    // Finally delete the user row itself
-    await pool.query('DELETE FROM users WHERE id = $1', [uid]);
-    console.log(`[admin] deleted user ${uid}`);
-    return NextResponse.json({ ok: true });
+    const uid = parsePositiveInt(body.student_id);
+    if (!uid) return NextResponse.json({ error: 'Invalid student_id' }, { status: 400 });
+    if (String(session.user.id || '') === String(uid)) {
+      return NextResponse.json({ error: 'You cannot delete your own account' }, { status: 403 });
+    }
+    const target = await pool.query('SELECT id, email, name, role FROM users WHERE id=$1', [uid]);
+    if (!target.rows[0]) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (target.rows[0].role !== 'student') {
+      return NextResponse.json({ error: 'Delete action is only allowed for students' }, { status: 400 });
+    }
+
+    await pool.query('BEGIN');
+    try {
+      // Delete all user content first (most have ON DELETE CASCADE but be explicit)
+      await pool.query('DELETE FROM essay_drafts      WHERE user_id = $1', [uid]);
+      await pool.query('DELETE FROM colleges          WHERE user_id = $1', [uid]);
+      await pool.query('DELETE FROM llm_usage         WHERE user_id = $1', [uid]);
+      await pool.query('DELETE FROM student_settings  WHERE user_id = $1', [uid]);
+      await pool.query('DELETE FROM profiles          WHERE user_id = $1', [uid]);
+      await pool.query('DELETE FROM ep_assignments    WHERE student_id = $1', [uid]);
+      await pool.query('DELETE FROM payments          WHERE user_id = $1', [uid]);
+      await pool.query(
+        `INSERT INTO admin_logs (level, source, message, details) VALUES ('warn', 'admin', $1, $2)`,
+        [
+          `Admin ${session.user.email} deleted student ${target.rows[0].email}`,
+          JSON.stringify({ student_id: uid, student_email: target.rows[0].email, admin_email: session.user.email }),
+        ]
+      ).catch(() => {});
+      // Finally delete the user row itself
+      await pool.query('DELETE FROM users WHERE id = $1', [uid]);
+      await pool.query('COMMIT');
+      console.log(`[admin] deleted student ${uid}`);
+      return NextResponse.json({ ok: true });
+    } catch (err) {
+      await pool.query('ROLLBACK').catch(() => {});
+      throw err;
+    }
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
