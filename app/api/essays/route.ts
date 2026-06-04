@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
     if (action === 'voice_samples') {
       const pool = (await import('@/lib/db')).getPool();
       try {
-        await pool.query(`ALTER TABLE student_settings ADD COLUMN IF NOT EXISTS voice_samples JSONB DEFAULT '[]'`).catch(()=>{});
         const { rows } = await pool.query(`SELECT voice_samples FROM student_settings WHERE user_id = $1`, [userId]);
         const samples = rows[0]?.voice_samples || [];
         return NextResponse.json({ samples });
@@ -61,7 +60,6 @@ export async function POST(request: NextRequest) {
     if (data.action === 'save_voice_samples') {
       const pool = (await import('@/lib/db')).getPool();
       try {
-        await pool.query(`ALTER TABLE student_settings ADD COLUMN IF NOT EXISTS voice_samples JSONB DEFAULT '[]'`).catch(()=>{});
         await pool.query(
           `INSERT INTO student_settings (user_id, voice_samples) VALUES ($1, $2)
            ON CONFLICT (user_id) DO UPDATE SET voice_samples = $2`,

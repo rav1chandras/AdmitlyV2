@@ -11,6 +11,7 @@
  */
 
 import { getPool } from '@/lib/db';
+import { ensureSchema } from '@/lib/db_schema';
 import fs from 'fs';
 import path from 'path';
 
@@ -93,39 +94,8 @@ export async function ensureProgramsMaster(): Promise<void> {
 
 async function _doSeedPrograms(): Promise<void> {
   if (seeded) return;
+  await ensureSchema();
   const pool = getPool();
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS programs_master (
-      id SERIAL PRIMARY KEY,
-      ope6_id INTEGER NOT NULL,
-      institution_name TEXT,
-      control VARCHAR(20),
-      cip4 VARCHAR(10) NOT NULL,
-      cipcode INTEGER,
-      cipdesc TEXT,
-      program_normalized TEXT,
-      credlev INTEGER,
-      ipedscount2 INTEGER,
-      earn_mdn_1yr INTEGER,
-      earn_mdn_4yr INTEGER,
-      earn_mdn_5yr INTEGER,
-      earn_gt_threshold_5yr INTEGER,
-      debt_all_stgp_eval_mdn INTEGER,
-      UNIQUE (ope6_id, cip4, credlev)
-    )
-  `);
-
-  // Safe: add unique constraint if not already present (handles existing DBs)
-  await pool.query(`
-    DO $$ BEGIN
-      ALTER TABLE programs_master ADD CONSTRAINT programs_master_ope6_id_cip4_credlev_key UNIQUE (ope6_id, cip4, credlev);
-    EXCEPTION WHEN duplicate_table OR duplicate_object THEN NULL;
-    END $$
-  `);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_pm_ope6_id ON programs_master(ope6_id)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_pm_cip4   ON programs_master(cip4)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_pm_prog_norm ON programs_master(program_normalized)`);
 
   const { rows } = await pool.query('SELECT COUNT(*)::int AS cnt FROM programs_master');
   if (rows[0].cnt > 0) {

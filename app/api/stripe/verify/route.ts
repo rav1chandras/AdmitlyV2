@@ -25,9 +25,6 @@ export async function POST(request: NextRequest) {
     }
     const pool = getPool();
 
-    // Ensure plan_id column is varchar
-    try { await pool.query(`ALTER TABLE payments ALTER COLUMN plan_id TYPE VARCHAR(100) USING plan_id::text`); } catch {}
-
     console.log(`[Stripe verify] Checking user ${userId}`);
 
     // First check if already upgraded

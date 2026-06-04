@@ -12,6 +12,7 @@
  */
 
 import { getPool } from '@/lib/db';
+import { ensureSchema } from '@/lib/db_schema';
 import fs from 'fs';
 import path from 'path';
 
@@ -80,31 +81,8 @@ export async function ensureCollegesMaster(): Promise<void> {
 
 async function _doSeedColleges(): Promise<void> {
   if (seeded) return;
+  await ensureSchema();
   const pool = getPool();
-
-  // Ensure table exists
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS colleges_master (
-      id SERIAL PRIMARY KEY,
-      ope6_id INTEGER UNIQUE NOT NULL,
-      name TEXT NOT NULL, city TEXT, state CHAR(2), zip TEXT,
-      college_url TEXT, ownership VARCHAR(20), locale VARCHAR(20),
-      carnegie_basic INTEGER, acceptance_rate NUMERIC(5,1),
-      sat_25 INTEGER, sat_75 INTEGER, sat_math_25 INTEGER, sat_math_75 INTEGER,
-      sat_cr_25 INTEGER, sat_cr_75 INTEGER, sat_avg INTEGER, sat_range TEXT,
-      act_25 INTEGER, act_75 INTEGER, act_mid INTEGER, act_range TEXT,
-      enrollment INTEGER, retention_rate NUMERIC(5,1), student_faculty_ratio INTEGER,
-      pct_men NUMERIC(5,1), pct_women NUMERIC(5,1),
-      pct_white NUMERIC(5,1), pct_black NUMERIC(5,1), pct_hispanic NUMERIC(5,1),
-      pct_asian NUMERIC(5,1), pct_two_or_more NUMERIC(5,1),
-      tuition_in_state INTEGER, tuition_out_state INTEGER,
-      net_price INTEGER, cost_attendance INTEGER,
-      median_debt INTEGER, pell_rate NUMERIC(5,1), loan_rate NUMERIC(5,1),
-      grad_rate NUMERIC(5,1),
-      earnings_6yr INTEGER, earnings_8yr INTEGER, earnings_10yr INTEGER,
-      last_refreshed TIMESTAMP DEFAULT NOW()
-    )
-  `);
 
   const { rows } = await pool.query('SELECT COUNT(*)::int AS cnt FROM colleges_master');
   if (rows[0].cnt > 0) {
@@ -122,6 +100,7 @@ async function _doSeedColleges(): Promise<void> {
  * Wipe and reload from CSV. Used by admin reimport action.
  */
 export async function reloadCollegesMaster(): Promise<{ inserted: number; errors: string[] }> {
+  await ensureSchema();
   const pool = getPool();
   await pool.query('DELETE FROM colleges_master');
   seeded = false;

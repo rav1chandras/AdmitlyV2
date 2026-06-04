@@ -364,8 +364,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(sanitizeNoteRows(r.rows));
     }
     if (entity === 'shared_essays') {
-      // Ensure assignment_id column exists
-      await db().query('ALTER TABLE essay_drafts ADD COLUMN IF NOT EXISTS assignment_id INTEGER DEFAULT NULL').catch(()=>{});
       // Return: student's shared essays (visible to all counselors)
       //       + expert reviews scoped to THIS assignment only
       const r = await db().query(
@@ -579,9 +577,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Plan ended — cannot create essays' }, { status: 403 });
       }
     }
-
-    // Ensure assignment_id column exists on essay_drafts
-    await db().query('ALTER TABLE essay_drafts ADD COLUMN IF NOT EXISTS assignment_id INTEGER DEFAULT NULL').catch(()=>{});
 
     // Get counselor display name for the expert_tag
     const cNameRes = await db().query('SELECT display_name FROM ep_counselors WHERE id=$1', [counselorId]);

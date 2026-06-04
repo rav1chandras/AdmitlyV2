@@ -111,15 +111,7 @@ export async function GET(request: NextRequest) {
 
     if (view === 'assignments') {
       const pool = getPool();
-      // role column may not exist on older DBs — use COALESCE with fallback
-      let usersRes;
-      try {
-        usersRes = await pool.query(`SELECT id, name, email, role FROM users ORDER BY name`);
-      } catch {
-        // role column missing — add it and retry
-        try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'student'`); } catch {}
-        usersRes = await pool.query(`SELECT id, name, email, COALESCE(role, 'student') as role FROM users ORDER BY name`);
-      }
+      const usersRes = await pool.query(`SELECT id, name, email, role FROM users ORDER BY name`);
       const assignRes = await pool.query(`
         SELECT a.id, a.counselor_id, a.student_id, a.plan, a.sessions_total, a.sessions_used, a.status, a.target_schools, a.start_date, a.end_date, a.created_at,
                a.declined_reason, a.accepted_at,
@@ -276,8 +268,6 @@ export async function GET(request: NextRequest) {
     if (view === 'payments') {
       const pool = getPool();
       try {
-        // Ensure plan_id is varchar
-        try { await pool.query(`ALTER TABLE payments ALTER COLUMN plan_id TYPE VARCHAR(100) USING plan_id::VARCHAR`); } catch {}
         const paymentsRes = await pool.query(`
           SELECT p.id, p.user_id, u.name AS student_name, u.email AS student_email,
                  p.plan_name, p.amount_cents, p.status, p.stripe_session_id,
@@ -553,7 +543,6 @@ export async function GET(request: NextRequest) {
     if (view === 'error_log') {
       const pool = getPool();
       try {
-        await pool.query(`CREATE TABLE IF NOT EXISTS admin_logs (id SERIAL PRIMARY KEY, level VARCHAR(10) NOT NULL DEFAULT 'info', source VARCHAR(50) NOT NULL, message TEXT NOT NULL, details JSONB, created_at TIMESTAMP DEFAULT NOW())`);
         const logs = await pool.query(`SELECT * FROM admin_logs ORDER BY created_at DESC LIMIT 100`);
         const counts = await pool.query(`
           SELECT level, COUNT(*)::int AS cnt
@@ -1653,7 +1642,6 @@ export async function POST(request: NextRequest) {
     try {
       const Stripe = (await import('stripe')).default;
       const stripe = new Stripe(stripeKey);
-      try { await pool.query(`ALTER TABLE payments ALTER COLUMN plan_id TYPE VARCHAR(100) USING plan_id::text`); } catch {}
       
       const sessions = await stripe.checkout.sessions.list({ limit: 50 });
       let synced = 0;

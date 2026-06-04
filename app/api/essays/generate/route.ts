@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 import { logLlmUsage } from '@/lib/db_admin';
 import { getJourney, buildFactsBlock } from '@/lib/db_journey';
 import { getSettings } from '@/lib/db_settings';
+import { ensureSchema } from '@/lib/db_schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Pro subscription required', upgrade: true }, { status: 403 });
   }
   const userId = parseInt(session.user.id);
+  await ensureSchema();
 
   // Daily AI generation limit
   // SECURITY: Previously this was a check-then-act read of admin_logs (racy —
@@ -45,15 +47,6 @@ export async function POST(request: NextRequest) {
   try {
     const { getPool } = await import('@/lib/db');
     const pool = getPool();
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ai_daily_usage (
-        user_id INTEGER NOT NULL,
-        usage_date DATE NOT NULL DEFAULT CURRENT_DATE,
-        count INTEGER NOT NULL DEFAULT 0,
-        PRIMARY KEY (user_id, usage_date)
-      )
-    `).catch(() => {});
-
     // Atomic increment: insert today's row at count=1, or bump existing count.
     // Returns the new count so we can enforce the cap without a race.
     const incRes = await pool.query(

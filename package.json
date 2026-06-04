@@ -12,6 +12,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:migrate": "node scripts/migrate.js",
+    "db:status": "node scripts/migrate.js --status",
     "colleges:extract": "python scripts/extract_colleges.py",
     "colleges:refresh": "python scripts/extract_colleges.py"
   },

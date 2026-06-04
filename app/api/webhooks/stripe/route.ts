@@ -464,9 +464,6 @@ export async function POST(request: NextRequest) {
 
         // ── Step 1: Record payment (non-blocking) ──
         try {
-          // Ensure payments table has varchar plan_id column (safe for both new and existing DBs)
-          await pool.query(`ALTER TABLE payments ALTER COLUMN plan_id TYPE VARCHAR(100) USING plan_id::text`).catch(() => {});
-
           // Check for duplicate first
           const existing = await pool.query(`SELECT id FROM payments WHERE stripe_session_id = $1`, [session.id]);
           if (existing.rows.length === 0) {

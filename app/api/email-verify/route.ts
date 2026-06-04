@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { ensureSchema } from '@/lib/db_schema';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -73,23 +74,8 @@ function generateCode(): string {
 
 export async function POST(request: NextRequest) {
   try {
+    await ensureSchema();
     const pool = getPool();
-
-    // Ensure table exists (lightweight — no full schema rebuild)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS email_verification_codes (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) NOT NULL,
-        code VARCHAR(6) NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        verified BOOLEAN DEFAULT false,
-        attempts INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-    // SECURITY: purpose column — binds a code to a specific flow.
-    await pool.query(`ALTER TABLE email_verification_codes ADD COLUMN IF NOT EXISTS purpose VARCHAR(20) DEFAULT 'signup'`).catch(() => {});
-    await pool.query(`ALTER TABLE email_verification_codes ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMP`).catch(() => {});
 
     const { action, email, code, purpose } = await request.json();
     const cleanEmail = email?.trim().toLowerCase();

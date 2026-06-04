@@ -45,10 +45,6 @@ export async function POST(req: NextRequest) {
     await ensureSchema();
     const pool = getPool();
 
-    // Ensure impersonation token column exists
-    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS impersonate_token VARCHAR(64)`).catch(()=>{});
-    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS impersonate_expires_at TIMESTAMP`).catch(()=>{});
-
     // Fetch target user
     const { rows } = await pool.query('SELECT id, email, role FROM users WHERE id=$1', [targetId]);
     if (!rows[0]) return NextResponse.json({ error: 'User not found' }, { status: 404 });

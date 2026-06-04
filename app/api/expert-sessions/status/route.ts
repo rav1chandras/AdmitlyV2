@@ -15,8 +15,6 @@ export async function GET(request: NextRequest) {
     const userId = parseInt(session.user.id as string);
     const pool = getPool();
 
-    try { await pool.query(`ALTER TABLE payments ALTER COLUMN plan_id TYPE VARCHAR(100) USING plan_id::text`); } catch {}
-
     // Step 1: Check DB subscription status
     const { rows: userRows } = await pool.query(
       `SELECT subscription_status, subscription_expires_at FROM users WHERE id = $1`, [userId]
