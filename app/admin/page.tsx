@@ -68,6 +68,32 @@ interface PopularCollegeData {
     submitted_essays: number;
   };
 }
+interface AdminTask {
+  id: number;
+  unique_key: string | null;
+  type: string;
+  source: string;
+  status: 'open' | 'snoozed' | 'resolved' | 'dismissed';
+  priority: 'urgent' | 'high' | 'medium' | 'low';
+  title: string;
+  details: string | null;
+  action_label: string | null;
+  action_tab: string | null;
+  user_id: number | null;
+  user_name: string | null;
+  user_email: string | null;
+  counselor_name: string | null;
+  due_at: string | null;
+  created_at: string;
+  updated_at: string;
+  metadata: any;
+}
+interface FounderInboxData {
+  tasks: AdminTask[];
+  summary: { open: number; urgent: number; high: number; resolved_7d: number };
+  generated: number;
+  warning?: string;
+}
 
 function fmt(n: number, dec = 0) { return n.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
 function fmtDate(s: string | null) { if (!s) return '—'; return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
@@ -592,6 +618,9 @@ export default function AdminPage() {
   const [metricsRange, setMetricsRange] = useState<MetricRange>('30d');
   const [metricsData, setMetricsData] = useState<MetricsResponse | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [founderInbox, setFounderInbox] = useState<FounderInboxData | null>(null);
+  const [founderInboxLoading, setFounderInboxLoading] = useState(false);
+  const [taskUpdatingId, setTaskUpdatingId] = useState<number | null>(null);
 
 
   const fetchData = useCallback(async (view: string) => {
@@ -618,6 +647,38 @@ export default function AdminPage() {
   const [cdSearch, setCdSearch] = useState('');
   const [cdTypeFilter, setCdTypeFilter] = useState('all');
   const fetchNews = useCallback(async () => { try { const res = await fetch('/api/admin/news?admin=1', { cache:'no-store' }); if (res.ok) setNewsItems(await res.json()); } catch {} }, []);
+  const fetchFounderInbox = useCallback(async () => {
+    setFounderInboxLoading(true);
+    try {
+      const res = await fetch('/api/admin?view=founder_inbox', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setFounderInbox(data);
+      else setFounderInbox({ tasks: [], summary: { open: 0, urgent: 0, high: 0, resolved_7d: 0 }, generated: 0, warning: data.error || 'Founder Inbox unavailable' });
+    } catch {
+      setFounderInbox({ tasks: [], summary: { open: 0, urgent: 0, high: 0, resolved_7d: 0 }, generated: 0, warning: 'Founder Inbox unavailable' });
+    } finally {
+      setFounderInboxLoading(false);
+    }
+  }, []);
+
+  const updateAdminTask = useCallback(async (taskId: number, nextStatus: AdminTask['status']) => {
+    setTaskUpdatingId(taskId);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_admin_task', task_id: taskId, status: nextStatus }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Could not update task.');
+        return;
+      }
+      await fetchFounderInbox();
+    } finally {
+      setTaskUpdatingId(null);
+    }
+  }, [fetchFounderInbox]);
 
   const handleAddDate = async () => { if (!dateForm.title || !dateForm.event_date) return; setDateSaving(true); await fetch('/api/dates', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(dateForm) }); setDateForm({ category:'sat', title:'', description:'', event_date:'', is_active:true }); await fetchKeyDates(); setDateSaving(false); };
   const handleToggleDate = async (id: number, is_active: boolean) => { await fetch('/api/dates', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, is_active:!is_active }) }); fetchKeyDates(); };
@@ -724,13 +785,14 @@ export default function AdminPage() {
     if (status !== 'authenticated' || tab !== 'overview') return;
     let cancelled = false;
     setMetricsLoading(true);
+    fetchFounderInbox();
     fetch(`/api/admin/metrics?range=${metricsRange}`, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then((d: MetricsResponse) => { if (!cancelled) setMetricsData(d); })
       .catch(e => { console.error('[admin] metrics fetch failed:', e); if (!cancelled) setMetricsData(null); })
       .finally(() => { if (!cancelled) setMetricsLoading(false); });
     return () => { cancelled = true; };
-  }, [tab, status, metricsRange, refreshAt]);
+  }, [tab, status, metricsRange, refreshAt, fetchFounderInbox]);
 
   // Popular Colleges has date filters, so keep it separate from the generic
   // tab loader instead of reusing the unfiltered Students payload.
@@ -1281,6 +1343,116 @@ export default function AdminPage() {
                   {activityWindow.length} day{activityWindow.length!==1?'s':''} shown
                 </span>
               </div>
+
+              <div style={ss({background:'var(--card)',border:'1px solid var(--border)',borderRadius:'var(--radius)',overflow:'hidden',boxShadow:'0 10px 28px rgba(28,25,23,.04)'})}>
+                <div style={ss({padding:'18px 20px',borderBottom:'1px solid var(--border-light)',display:'flex',alignItems:'center',gap:12})}>
+                  <div style={ss({width:36,height:36,borderRadius:11,background:'#06245B',color:'#FFE500',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13})}>
+                    <i className="fas fa-inbox"></i>
+                  </div>
+                  <div style={ss({flex:1,minWidth:0})}>
+                    <h3 style={ss({fontSize:15,fontWeight:900,color:'var(--stone-900)',margin:0})}>Founder Inbox</h3>
+                    <p style={ss({fontSize:11,fontWeight:600,color:'var(--stone-400)',marginTop:2})}>Your operational queue: money, assignments, messages, approvals, and system health.</p>
+                  </div>
+                  <div style={ss({display:'flex',gap:8,alignItems:'center'})}>
+                    {[
+                      {label:'Open', value: founderInbox?.summary?.open ?? 0, bg:'#eff6ff', color:'#1e40af'},
+                      {label:'Urgent', value: founderInbox?.summary?.urgent ?? 0, bg:'var(--red-light)', color:'#991b1b'},
+                      {label:'High', value: founderInbox?.summary?.high ?? 0, bg:'var(--amber-light)', color:'#92400e'},
+                      {label:'Done 7d', value: founderInbox?.summary?.resolved_7d ?? 0, bg:'var(--emerald-light)', color:'#065f46'},
+                    ].map(s => (
+                      <div key={s.label} style={ss({minWidth:68,padding:'7px 10px',borderRadius:10,background:s.bg,color:s.color,textAlign:'center'})}>
+                        <div style={ss({fontSize:16,fontWeight:900,lineHeight:1})}>{s.value}</div>
+                        <div style={ss({fontSize:9,fontWeight:800,textTransform:'uppercase',letterSpacing:'.35px',marginTop:2})}>{s.label}</div>
+                      </div>
+                    ))}
+                    <button onClick={fetchFounderInbox} disabled={founderInboxLoading}
+                      style={ss({width:34,height:34,borderRadius:10,border:'1px solid var(--border)',background:'var(--card)',color:'var(--stone-500)',cursor:founderInboxLoading?'default':'pointer',display:'flex',alignItems:'center',justifyContent:'center'})}
+                      title="Refresh Founder Inbox">
+                      <i className={`fas fa-rotate ${founderInboxLoading ? 'fa-spin' : ''}`} style={{fontSize:11}}></i>
+                    </button>
+                  </div>
+                </div>
+
+                {founderInbox?.warning && (
+                  <div style={ss({margin:'14px 18px 0',padding:'10px 12px',borderRadius:10,background:'var(--amber-light)',color:'#92400e',fontSize:11,fontWeight:700})}>
+                    <i className="fas fa-triangle-exclamation" style={{marginRight:6}}></i>{founderInbox.warning}
+                  </div>
+                )}
+
+                <div style={ss({padding:18})}>
+                  {founderInboxLoading && !founderInbox ? (
+                    <div style={ss({padding:'22px 0',textAlign:'center',fontSize:12,fontWeight:700,color:'var(--stone-400)'})}>
+                      <i className="fas fa-spinner fa-spin" style={{marginRight:8}}></i>Building your queue…
+                    </div>
+                  ) : (founderInbox?.tasks || []).length === 0 ? (
+                    <div style={ss({border:'1px dashed var(--border)',borderRadius:14,padding:'22px 18px',display:'flex',alignItems:'center',gap:14,background:'var(--stone-50)'})}>
+                      <div style={ss({width:38,height:38,borderRadius:12,background:'var(--emerald-light)',color:'#065f46',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14})}><i className="fas fa-circle-check"></i></div>
+                      <div>
+                        <div style={ss({fontSize:13,fontWeight:900,color:'var(--stone-900)'})}>Nothing needs your attention right now.</div>
+                        <div style={ss({fontSize:11,fontWeight:600,color:'var(--stone-400)',marginTop:2})}>The inbox will populate automatically as students, payments, counselors, and system events need action.</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={ss({display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12})}>
+                      {(founderInbox?.tasks || []).slice(0, 8).map(task => {
+                        const p = task.priority === 'urgent'
+                          ? {bg:'var(--red-light)', color:'#991b1b', icon:'fa-fire'}
+                          : task.priority === 'high'
+                            ? {bg:'var(--amber-light)', color:'#92400e', icon:'fa-triangle-exclamation'}
+                            : task.priority === 'medium'
+                              ? {bg:'#eff6ff', color:'#1e40af', icon:'fa-circle-info'}
+                              : {bg:'var(--stone-100)', color:'var(--stone-500)', icon:'fa-circle'};
+                        const typeIcon: Record<string, string> = {
+                          assignment_gap: 'fa-user-tie',
+                          counselor_approval: 'fa-chalkboard-user',
+                          payment_recovery: 'fa-credit-card',
+                          premium_request: 'fa-crown',
+                          unread_message: 'fa-comments',
+                          payout_due: 'fa-hand-holding-dollar',
+                          system_error: 'fa-triangle-exclamation',
+                        };
+                        return (
+                          <div key={task.id} style={ss({border:'1px solid var(--border)',borderRadius:14,padding:14,background:'#fff',display:'flex',gap:12,minHeight:118})}>
+                            <div style={ss({width:36,height:36,borderRadius:11,background:p.bg,color:p.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0})}>
+                              <i className={`fas ${typeIcon[task.type] || p.icon}`}></i>
+                            </div>
+                            <div style={ss({flex:1,minWidth:0,display:'flex',flexDirection:'column'})}>
+                              <div style={ss({display:'flex',alignItems:'center',gap:6,marginBottom:5})}>
+                                <span style={ss({padding:'2px 7px',borderRadius:999,background:p.bg,color:p.color,fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'.35px'})}>{task.priority}</span>
+                                {task.due_at && <span style={ss({fontSize:10,fontWeight:700,color:'var(--stone-400)'})}>{fmtDateTime(task.due_at)}</span>}
+                              </div>
+                              <div style={ss({fontSize:13,fontWeight:900,color:'var(--stone-900)',lineHeight:1.25,overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'})}>{task.title}</div>
+                              <div style={ss({fontSize:11,fontWeight:600,color:'var(--stone-500)',lineHeight:1.4,marginTop:4,overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'})}>{task.details || 'Review this item.'}</div>
+                              <div style={ss({display:'flex',alignItems:'center',gap:8,marginTop:'auto',paddingTop:10})}>
+                                {task.action_tab && (
+                                  <button onClick={()=>setTab(task.action_tab as TabId)}
+                                    style={ss({padding:'6px 10px',borderRadius:8,border:'none',background:'#06245B',color:'#fff',fontSize:10,fontWeight:800,cursor:'pointer',fontFamily:'inherit'})}>
+                                    {task.action_label || 'Open'}
+                                  </button>
+                                )}
+                                <button disabled={taskUpdatingId===task.id} onClick={()=>updateAdminTask(task.id, 'resolved')}
+                                  style={ss({padding:'6px 9px',borderRadius:8,border:'1px solid var(--border)',background:'var(--card)',color:'var(--emerald)',fontSize:10,fontWeight:800,cursor:taskUpdatingId===task.id?'default':'pointer',fontFamily:'inherit'})}>
+                                  Done
+                                </button>
+                                <button disabled={taskUpdatingId===task.id} onClick={()=>updateAdminTask(task.id, 'dismissed')}
+                                  style={ss({padding:'6px 9px',borderRadius:8,border:'1px solid var(--border)',background:'var(--card)',color:'var(--stone-400)',fontSize:10,fontWeight:800,cursor:taskUpdatingId===task.id?'default':'pointer',fontFamily:'inherit'})}>
+                                  Dismiss
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {(founderInbox?.tasks?.length || 0) > 8 && (
+                    <div style={ss({fontSize:11,fontWeight:700,color:'var(--stone-400)',marginTop:10,textAlign:'right'})}>
+                      Showing top 8 of {founderInbox?.tasks.length} open tasks
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* ── Phase 2: Categorized ranged metrics panel ──
                   Single time-range selector drives every tile through one
                   API round-trip (/api/admin/metrics). Tiles are grouped into

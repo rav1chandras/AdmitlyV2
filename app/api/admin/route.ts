@@ -7,6 +7,7 @@ import { ensureSchema } from '@/lib/db_schema';
 import { sendEmail } from '@/lib/email';
 import { isAdmin } from '@/lib/auth-helpers';
 import { sanitizePlainUserText } from '@/lib/sanitize';
+import { syncFounderInboxTasks } from '@/lib/admin-tasks';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,6 +58,25 @@ export async function GET(request: NextRequest) {
         getDailyActivity(14),
       ]);
       return NextResponse.json({ stats, activity });
+    }
+
+    if (view === 'founder_inbox') {
+      const pool = getPool();
+      try {
+        const inbox = await syncFounderInboxTasks(pool);
+        return NextResponse.json(inbox);
+      } catch (err: any) {
+        if (err?.code === '42P01') {
+          return NextResponse.json({
+            tasks: [],
+            summary: { open: 0, urgent: 0, high: 0, resolved_7d: 0 },
+            generated: 0,
+            warning: 'admin_tasks table missing — run migrations/012_admin_tasks.sql',
+          });
+        }
+        console.error('[Admin founder_inbox]', err.message);
+        return NextResponse.json({ error: 'Failed to load founder inbox' }, { status: 500 });
+      }
     }
 
     if (view === 'students') {
@@ -317,7 +337,7 @@ export async function GET(request: NextRequest) {
     // ── Data Health: table row counts + freshness ──
     if (view === 'data_health') {
       const pool = getPool();
-      const tables = ['users', 'profiles', 'colleges', 'essay_drafts', 'colleges_master', 'programs_master', 'llm_usage', 'ep_counselors', 'ep_assignments', 'ep_plans', 'student_settings'];
+      const tables = ['users', 'profiles', 'colleges', 'essay_drafts', 'colleges_master', 'programs_master', 'llm_usage', 'ep_counselors', 'ep_assignments', 'ep_plans', 'student_settings', 'admin_tasks'];
       const counts: Record<string, number> = {};
       for (const t of tables) {
         try {
@@ -1029,6 +1049,38 @@ export async function POST(request: NextRequest) {
       [counselor_user_id]
     );
     return NextResponse.json({ ok: true });
+  }
+
+  if (body.action === 'update_admin_task') {
+    const taskId = parsePositiveInt(body.task_id);
+    const status = typeof body.status === 'string' ? body.status : '';
+    const allowed = new Set(['open', 'snoozed', 'resolved', 'dismissed']);
+    if (!taskId) return NextResponse.json({ error: 'Invalid task_id' }, { status: 400 });
+    if (!allowed.has(status)) return NextResponse.json({ error: 'Invalid task status' }, { status: 400 });
+
+    const result = await pool.query(
+      `UPDATE admin_tasks
+          SET status = $1,
+              resolved_at = CASE WHEN $1 IN ('resolved','dismissed') THEN NOW() ELSE NULL END,
+              resolved_by = CASE WHEN $1 IN ('resolved','dismissed') THEN $2 ELSE NULL END,
+              updated_at = NOW()
+        WHERE id = $3
+        RETURNING *`,
+      [status, parsePositiveInt(session.user.id) || null, taskId],
+    );
+    if (!result.rows[0]) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+
+    try {
+      await pool.query(
+        `INSERT INTO admin_logs (level, source, message, details) VALUES ('info', 'admin_task', $1, $2)`,
+        [
+          `Admin ${session.user.email} marked task ${taskId} ${status}`,
+          JSON.stringify({ task_id: taskId, status, admin_id: session.user.id }),
+        ],
+      );
+    } catch {}
+
+    return NextResponse.json({ task: result.rows[0] });
   }
 
   // ── Approve pending counselor ──

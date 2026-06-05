@@ -4,7 +4,7 @@
 import { getPool } from '@/lib/db';
 
 let ready = false;
-const REQUIRED_MIGRATION = '011_runtime_schema_consolidation.sql';
+const REQUIRED_MIGRATION = '012_admin_tasks.sql';
 
 export async function ensureSchema(): Promise<void> {
   if (ready) return;
